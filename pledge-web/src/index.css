@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --color-verified: #059669;
+  --color-pending: #d97706;
+  --color-unclear: #64748b;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+
+  --font-mono: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace';
+  --font-sans: 'ui-sans-serif', 'system-ui', '-apple-system', "Segoe UI", 'Roboto', "Helvetica Neue", 'Arial', 'sans-serif';
+
+  --background-image-grid-pattern: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(226 232 240 / 0.6)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  --background-image-radial-fade: radial-gradient(circle at center, rgba(255, 255, 255, 0) 0%, rgba(248, 250, 252, 1) 100%);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden selection:bg-emerald-100 selection:text-emerald-900;
+  }
+}
+
+/* Custom scrollbar for instrument panel feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle animations */
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
