@@ -15,22 +15,37 @@ export function SignUpPage() {
     const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
     const [error, setError] = useState<string>('');
 
+    const refId = searchParams.get('ref');
+
     useEffect(() => {
+        if (refId) {
+            localStorage.setItem('pledge_referrer_id', refId);
+        }
         if (!loading && user) {
             navigate(redirect || '/');
         }
-    }, [user, loading, navigate, redirect]);
+    }, [user, loading, navigate, redirect, refId]);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setStatus('loading');
         setError('');
 
+        let nextUrl = window.location.origin;
+        if (redirect) {
+            nextUrl += redirect;
+        }
+
+        const returnUrl = new URL(nextUrl);
+        if (refId) {
+            returnUrl.searchParams.set('ref', refId);
+        }
+
         const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                emailRedirectTo: window.location.origin + (redirect ? redirect : '')
+                emailRedirectTo: returnUrl.toString()
             }
         });
 

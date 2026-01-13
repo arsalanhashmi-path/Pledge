@@ -13,7 +13,8 @@ interface StoreContextType {
     claimReceipt: (receiptId: string) => Promise<{ success: boolean; message: string }>;
     addConnection: (email: string) => Promise<{ success: boolean; message: string }>;
     acceptConnection: (connectionId: string) => Promise<void>;
-    rejectConnection: (connectionId: string) => Promise<void>;
+    rejectConnection: (connectionId: string) => Promise<void>; // Alias for remove/delete
+    removeConnection: (connectionId: string) => Promise<{ success: boolean; message: string }>;
     getUser: (id: string) => User | undefined;
     loading: boolean;
     signOut: () => Promise<void>;
@@ -30,11 +31,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const getLowHigh = (id1: string, id2: string) => {
-        return id1 < id2 ? [id1, id2] : [id2, id1];
-    };
+    // Helper removed as logic moved to backend
 
-    const fetchData = async (options: { silent?: boolean } = {}) => {
+    const lastFetchRef = React.useRef<number>(0);
+
+    const fetchData = async (options: { silent?: boolean; force?: boolean } = {}) => {
+        const now = Date.now();
+        // Debounce: If called within 2 seconds, skip unless forced
+        if (!options.force && (now - lastFetchRef.current < 2000)) {
+            return;
+        }
+        lastFetchRef.current = now;
+
         try {
             if (!options.silent) {
                 setLoading(true);
@@ -64,7 +72,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     last_name: myProfile.last_name,
                     institution: myProfile.institution,
                     handle: myProfile.first_name,
-                    maskedName: `${myProfile.first_name} ${myProfile.last_name}`
+                    maskedName: `${myProfile.first_name} ${myProfile.last_name}`,
+                    created_at: myProfile.created_at
                 });
             } else {
                 // Fallback for partially onboarded users
@@ -107,16 +116,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }));
             setReceipts(mappedReceipts);
 
-            // 3. Fetch Connections
-            const { data: connectionsData, error: connError } = await supabase
-                .from('connections')
-                .select('*')
-                .or(`low_id.eq.${authUser.id},high_id.eq.${authUser.id}`);
-
-            if (connError) {
-                console.error("Error fetching connections:", connError);
+            // 3. Fetch Connections (API)
+            const token = (await supabase.auth.getSession()).data.session?.access_token;
+            let conns: Connection[] = [];
+            
+            if (token) {
+                 const connRes = await fetch('http://localhost:5000/api/connections', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const connJson = await connRes.json();
+                if (connJson.success) {
+                    conns = connJson.data;
+                }
             }
-            const conns = (connectionsData || []) as Connection[];
             setConnections(conns);
 
             // 4. Fetch Related Profiles (from both connections and receipts)
@@ -170,9 +182,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (session?.user) {
-                // Only re-fetch on meaningful events to avoid focus-trigger spam
-                // or use a silent fetch if we already have data.
                 if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+                    // Debounce will handle rapid fires
                     fetchData();
                 } else if (event === 'TOKEN_REFRESHED') {
                     fetchData({ silent: true });
@@ -189,36 +200,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const createReceipt = async (email: string, tags: string[], description: string, is_public: boolean): Promise<{ success: boolean; message: string; receipt?: Receipt }> => {
         if (!currentUser) return { success: false, message: "Not authenticated" };
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, message: "No token" };
 
         try {
-            const { data, error } = await supabase.from('receipts').insert({
-                from_user_id: currentUser.id,
-                recipient_email: email.toLowerCase(),
-                tags,
-                description,
-                is_public,
-                status: 'AWAITING_SIGNUP'
-            }).select().single();
+            const res = await fetch('http://localhost:5000/api/receipts/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    email,
+                    tags,
+                    description,
+                    is_public
+                })
+            });
 
-            if (error) throw error;
+            const json = await res.json();
+            
+            if (!res.ok || !json.success) {
+                return { success: false, message: json.error || "Failed to create receipt" };
+            }
 
-            const newReceipt: Receipt = {
-                id: data.id,
-                from_user_id: data.from_user_id,
-                to_user_id: data.to_user_id,
-                recipient_email: data.recipient_email,
-                connection_id: data.connection_id,
-                tags: data.tags || [],
-                description: data.description,
-                is_public: data.is_public,
-                status: data.status as ReceiptStatus,
-                created_at: data.created_at,
-                accepted_at: data.accepted_at,
-                accepted_by_user_id: data.accepted_by_user_id
-            };
-
-            setReceipts(prev => [newReceipt, ...prev]);
-            return { success: true, message: "Receipt created!", receipt: newReceipt };
+            await fetchData();
+            return { success: true, message: "Receipt created!", receipt: json.receipt };
 
         } catch (err: any) {
             console.error("createReceipt error:", err);
@@ -227,15 +234,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const claimReceipt = async (receiptId: string): Promise<{ success: boolean; message: string }> => {
+        if (!currentUser) return { success: false, message: "Not authenticated" };
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, message: "No token" };
+
         try {
-            const { error } = await supabase.rpc('accept_connection_then_accept_receipt', {
-                p_receipt_id: receiptId
+            const res = await fetch('http://localhost:5000/api/receipts/claim', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ receipt_id: receiptId })
             });
 
-            if (error) throw error;
+            const json = await res.json();
+            
+            if (!res.ok || !json.success) {
+                return { success: false, message: json.error || "Failed to claim receipt" };
+            }
 
-            await fetchData(); // Refresh everything
-            return { success: true, message: "Connection created ✅ Receipt accepted ✅" };
+            await fetchData();
+            return { success: true, message: "Receipt accepted!" };
+
         } catch (err: any) {
             console.error("claimReceipt error:", err);
             return { success: false, message: err.message || "Failed to claim receipt" };
@@ -244,54 +265,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addConnection = async (email: string): Promise<{ success: boolean; message: string }> => {
         if (!currentUser) return { success: false, message: "Not authenticated" };
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, message: "No token" };
 
         try {
-            const { data: profiles, error: profileError } = await supabase
-                .from('public_profiles')
-                .select('*')
-                .eq('email', email.toLowerCase())
-                .maybeSingle();
-
-            if (profileError || !profiles) return { success: false, message: "User not found." };
-            const targetId = profiles.user_id;
-            if (targetId === currentUser.id) return { success: false, message: "Cannot connect to self." };
-
-            const [low, high] = getLowHigh(currentUser.id, targetId);
-
-            // Check if already exists
-            const { data: existing, error: existingError } = await supabase
-                .from('connections')
-                .select('*')
-                .eq('low_id', low)
-                .eq('high_id', high)
-                .maybeSingle();
-
-            if (existingError && existingError.code !== 'PGRST116') { // PGRST116 means no rows found
-                throw existingError;
-            }
-
-            if (existing) {
-                if (existing.accepted) {
-                    return { success: false, message: "Already connected." };
-                } else if (existing.requested_by === currentUser.id) {
-                    return { success: false, message: "Request already sent." };
-                } else {
-                    return { success: false, message: "They already sent you a request. Check your inbox!" };
-                }
-            }
-
-            const { error } = await supabase.from('connections').insert({
-                low_id: low,
-                high_id: high,
-                requested_by: currentUser.id,
-                accepted: false,
-                requested_at: new Date().toISOString()
+            const res = await fetch('http://localhost:5000/api/connections/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ email })
             });
-
-            if (error) throw error;
-            fetchData(); // Re-fetch to update local state
+            
+            const json = await res.json();
+            if (!json.success && !res.ok) {
+                 return { success: false, message: json.error || "Failed to send request" };
+            }
+            
+            fetchData();
             return { success: true, message: "Request sent!" };
-
         } catch (err: any) {
             console.error(err);
             return { success: false, message: "Failed to send request." };
@@ -299,26 +292,77 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const acceptConnection = async (connectionId: string) => {
-        if (!currentUser) return;
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return;
+
+        // 1. Optimistic Update
+        const previousConnections = [...connections];
+        setConnections(prev => prev.map(c => 
+            c.id === connectionId 
+                ? { ...c, accepted: true, accepted_at: new Date().toISOString() } 
+                : c
+        ));
+
         try {
-            await supabase.from('connections').update({
-                accepted: true,
-                accepted_at: new Date().toISOString()
-            }).eq('id', connectionId);
-            fetchData(); // Re-fetch to update local state
+             const res = await fetch('http://localhost:5000/api/connections/accept', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ connection_id: connectionId })
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to accept");
+            }
+            
+            // No need to fetchData() since we updated state locally!
         } catch (err) {
             console.error("Accept connection error:", err);
+            // Revert on error
+            setConnections(previousConnections);
+            // Optionally show toast error here
+        }
+    };
+
+    const removeConnection = async (connectionId: string): Promise<{ success: boolean; message: string }> => {
+        if (!currentUser) return { success: false, message: "Not authenticated" };
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, message: "No token" };
+
+        // 1. Optimistic Update
+        const previousConnections = [...connections];
+        setConnections(prev => prev.filter(c => c.id !== connectionId));
+
+        try {
+             const res = await fetch('http://localhost:5000/api/connections/remove', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ connection_id: connectionId })
+            });
+
+            if (!res.ok) {
+                const json = await res.json();
+                throw new Error(json.error || "Failed to remove");
+            }
+            
+            await fetchData();
+            return { success: true, message: "Connection removed" };
+        } catch (err: any) {
+            console.error("removeConnection error:", err);
+            // Revert
+            setConnections(previousConnections);
+            return { success: false, message: err.message || "Failed to remove connection" };
         }
     };
 
     const rejectConnection = async (connectionId: string) => {
-        if (!currentUser) return;
-        try {
-            await supabase.from('connections').delete().eq('id', connectionId);
-            fetchData(); // Re-fetch to update local state
-        } catch (err) {
-            console.error("Reject connection error:", err);
-        }
+       // Rejection is effectively the same as removing/deleting in this schema
+       await removeConnection(connectionId);
     };
 
     const rejectReceipt = async (receiptId: string): Promise<{ success: boolean; message: string }> => {
@@ -375,12 +419,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const value = useMemo(() => ({
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
-        addConnection, acceptConnection, rejectConnection,
+        addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt
     }), [
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
-        addConnection, acceptConnection, rejectConnection,
+        addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt
     ]);
 

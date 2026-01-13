@@ -85,17 +85,45 @@ export const OnboardingPage: React.FC = () => {
             return;
         }
 
-        const { error: publicError } = await supabase.from('public_profiles').upsert({
-            user_id: uid,
-            email: email,
-            first_name: form.first_name.trim(),
-            last_name: form.last_name.trim(),
-            institution: form.institution.trim(),
-        });
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
 
-        if (publicError) {
+        if (!token) {
             setSaving(false);
-            setError(publicError.message);
+            setError('No persistence token found. Please sign in again.');
+            return;
+        }
+
+        // Check localStorage first, then URL params (fallback if localStorage lost during email redirect)
+        const urlRef = searchParams.get('ref');
+        const referrerId = localStorage.getItem('pledge_referrer_id') || urlRef;
+
+        try {
+            const res = await fetch('http://localhost:5000/api/onboarding', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    first_name: form.first_name.trim(),
+                    last_name: form.last_name.trim(),
+                    institution: form.institution.trim(),
+                    referrer_id: referrerId
+                })
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                throw new Error(json.error || 'Failed to save profile');
+            }
+            
+            // Clear referral tracking
+            localStorage.removeItem('pledge_referrer_id');
+        } catch (err: any) {
+            setSaving(false);
+            setError(err.message);
             return;
         }
 

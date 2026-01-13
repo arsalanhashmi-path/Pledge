@@ -1,6 +1,7 @@
 export const ReceiptStatus = {
     AWAITING_SIGNUP: 'AWAITING_SIGNUP',
     AWAITING_CONNECTION: 'AWAITING_CONNECTION',
+    AWAITING_ACCEPTANCE: 'AWAITING_ACCEPTANCE',
     ACCEPTED: 'ACCEPTED',
     REJECTED: 'REJECTED'
 } as const;
@@ -15,6 +16,7 @@ export interface User {
     institution: string;
     handle: string; // derived
     maskedName: string; // derived
+    created_at?: string; // from auth/db
 }
 
 export interface Receipt {
@@ -40,6 +42,7 @@ export interface GraphNode {
         verified: number;
         pending: number;
         unclear: number;
+        rejected: number;
     };
     lastInteraction: string;
     topTags: string[];
@@ -48,6 +51,7 @@ export interface GraphNode {
         received: number;
     };
     isMe?: boolean;
+    connectedAt?: string;
 }
 
 export interface GraphLink {

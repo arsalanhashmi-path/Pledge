@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { Layout } from '../../app/Layout';
 import { useStore } from '../../services/store';
-import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, XCircle, Download, FileText, History as HistoryIcon, PlusCircle } from 'lucide-react';
 import { ReceiptStatus } from '../../types';
 import type { Receipt } from '../../types';
 
@@ -44,14 +44,28 @@ export const ReceiptDetailPage: React.FC = () => {
             const fetchPublicProfile = async (uid: string) => {
                 const { data } = await supabase
                     .from('public_profiles')
-                    .select('first_name,last_name,institution,email')
+                    .select('user_id,first_name,last_name,institution,email')
                     .eq('user_id', uid)
                     .maybeSingle();
                 return data;
             };
 
+            const fetchProfileByEmail = async (email: string) => {
+                const { data } = await supabase
+                    .from('public_profiles')
+                    .select('user_id,first_name,last_name,institution,email')
+                    .eq('email', email.toLowerCase())
+                    .maybeSingle();
+                return data;
+            };
+
             const senderDirectory = await fetchPublicProfile(data.from_user_id);
-            const recipientDirectory = data.to_user_id ? await fetchPublicProfile(data.to_user_id) : null;
+            let recipientDirectory = data.to_user_id ? await fetchPublicProfile(data.to_user_id) : null;
+            
+            // Fallback: If still no recipient profile but we have an email, search by email
+            if (!recipientDirectory && data.recipient_email) {
+                recipientDirectory = await fetchProfileByEmail(data.recipient_email);
+            }
 
             // Sender Logic
             const senderName = senderDirectory
@@ -75,7 +89,7 @@ export const ReceiptDetailPage: React.FC = () => {
             });
             setReceiverAuth({
                 name: (receiverName === 'Unknown' && data.recipient_email) ? 'External User' : receiverName,
-                id: data.to_user_id || 'No Account',
+                id: recipientDirectory?.user_id || data.to_user_id || 'No Account',
                 email: receiverEmail || null,
                 institution: receiverInst
             });
@@ -99,7 +113,7 @@ export const ReceiptDetailPage: React.FC = () => {
             setRow(mapped);
             setLoading(false);
         })();
-    }, [id, currentUser]);
+    }, [id, currentUser?.id]);
 
     if (loading) return (
         <Layout>
@@ -128,11 +142,15 @@ export const ReceiptDetailPage: React.FC = () => {
         );
     }
 
-
-
-    // Check if current user is the intended recipient
-    const isRecipient = currentUser?.email && row?.recipient_email &&
-        currentUser.email.toLowerCase() === row.recipient_email.toLowerCase();
+    const isSender = currentUser?.id === row.from_user_id;
+    const isEmailMatch = currentUser?.email && row.recipient_email && currentUser.email.toLowerCase() === row.recipient_email.toLowerCase();
+    
+    // Allow claiming if status is AWAITING_ACCEPTANCE
+    // OR if status is AWAITING_SIGNUP/CONNECTION but the email matches (Late Binding)
+    const canClaim = !isSender && (
+        row.status === ReceiptStatus.AWAITING_ACCEPTANCE || 
+        ((row.status === ReceiptStatus.AWAITING_SIGNUP || row.status === ReceiptStatus.AWAITING_CONNECTION) && isEmailMatch)
+    );
 
     async function handleAccept() {
         if (!id || !row) return;
@@ -166,31 +184,41 @@ export const ReceiptDetailPage: React.FC = () => {
 
     return (
         <Layout>
-            <div className="max-w-2xl mx-auto py-8 md:py-12 px-4 animate-fade-in">
+            <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 animate-fade-in">
                 <Link to="/receipts" className="inline-flex items-center space-x-2 text-muted hover:text-foreground transition-colors mb-8 group">
                     <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                     <span className="text-xs font-bold uppercase tracking-widest">Back to History</span>
                 </Link>
 
-                <div className="bg-surface p-8 md:p-12 rounded-[3rem] border border-border shadow-2xl shadow-slate-900/5 space-y-10">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                    <div id="printable-proof-card" className="lg:col-span-2 bg-surface p-8 md:p-12 rounded-[3rem] border border-border shadow-2xl shadow-slate-900/5 space-y-10">
                     <header className="flex items-start justify-between">
                         <div className="space-y-2">
                             <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Proof Detail</h1>
                             <p className="text-muted font-medium text-sm font-mono">ID: {row.id}</p>
                         </div>
-                        <div className={`p-4 rounded-2xl flex items-center justify-center ${row.status === ReceiptStatus.ACCEPTED ? 'bg-emerald-500/10 text-emerald-500' : 'bg-background text-muted'
-                            }`}>
-                            {row.status === ReceiptStatus.ACCEPTED ? <CheckCircle2 size={24} /> : <Clock size={24} />}
+                        <div className={`p-4 rounded-2xl flex items-center justify-center ${
+                            row.status === ReceiptStatus.ACCEPTED ? 'bg-emerald-500/10 text-emerald-500' :
+                            row.status === ReceiptStatus.REJECTED ? 'bg-red-500/10 text-red-500' :
+                            'bg-amber-500/10 text-amber-500'
+                        }`}>
+                            {row.status === ReceiptStatus.ACCEPTED ? <CheckCircle2 size={24} /> : 
+                             row.status === ReceiptStatus.REJECTED ? <XCircle size={24} /> : 
+                             <Clock size={24} />}
                         </div>
                     </header>
 
                     <div className="space-y-8">
                         {/* Verification Section */}
-                        {isRecipient && (row.status === ReceiptStatus.AWAITING_SIGNUP || row.status === ReceiptStatus.AWAITING_CONNECTION) && (
-                            <div className="p-6 bg-background rounded-[2rem] border-2 border-border space-y-4">
+                        {canClaim && (
+                            <div className="p-6 bg-background rounded-[2rem] border-2 border-border space-y-4 animate-slide-down">
                                 <div className="text-center space-y-1">
                                     <h3 className="text-lg font-bold text-foreground">Verify this Receipt</h3>
-                                    <p className="text-sm text-muted">You are listed as the recipient. Is this correct?</p>
+                                    <p className="text-sm text-muted">
+                                        {row.status === ReceiptStatus.AWAITING_SIGNUP 
+                                            ? "Claim this receipt to link it to your account." 
+                                            : "Confirm that this impact actually happened."}
+                                    </p>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <button
@@ -199,7 +227,7 @@ export const ReceiptDetailPage: React.FC = () => {
                                         className="py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50"
                                     >
                                         <CheckCircle2 size={18} />
-                                        <span>Confirm & Verify</span>
+                                        <span>{row.status === ReceiptStatus.AWAITING_SIGNUP ? "Claim & Verify" : "Confirm & Verify"}</span>
                                     </button>
                                     <button
                                         disabled={acting}
@@ -209,6 +237,22 @@ export const ReceiptDetailPage: React.FC = () => {
                                         Reject
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {!canClaim && row.status === ReceiptStatus.AWAITING_CONNECTION && !isSender && (
+                            <div className="p-6 bg-amber-500/5 rounded-[2rem] border-2 border-amber-500/20 space-y-2 text-center">
+                                <h3 className="text-lg font-bold text-amber-600 dark:text-amber-400">Connection Required</h3>
+                                <p className="text-sm text-muted">You must be connected to the sender before you can accept this receipt.</p>
+                                <div className="pt-2">
+                                    <Link to="/connections" className="text-sm font-bold text-foreground underline underline-offset-4">Check Network Requests</Link>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {error && (
+                            <div className="p-4 bg-red-500/10 text-red-500 rounded-xl text-sm font-medium text-center">
+                                {error}
                             </div>
                         )}
 
@@ -242,7 +286,11 @@ export const ReceiptDetailPage: React.FC = () => {
                             {/* Global Status */}
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-muted uppercase tracking-widest">Global Status</label>
-                                <div className="text-lg font-bold text-foreground">{row.status}</div>
+                                <div className={`text-lg font-bold ${
+                                    row.status === ReceiptStatus.ACCEPTED ? 'text-emerald-500' :
+                                    row.status === ReceiptStatus.REJECTED ? 'text-red-500' :
+                                    'text-amber-500'
+                                }`}>{row.status}</div>
                             </div>
 
                             {/* Created At */}
@@ -279,12 +327,24 @@ export const ReceiptDetailPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-3 pt-4">
-                        <Link to="/create" className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-center shadow-lg shadow-slate-900/10 hover:scale-[1.02] transition-transform">
-                            Document Help
+                    </div>
+                    {/* End of Card Content */}
+
+                    <div className="space-y-4">
+                        <button 
+                            onClick={() => window.print()}
+                            className="w-full py-4 bg-surface border border-border text-foreground rounded-2xl font-bold flex items-center justify-center space-x-2 hover:bg-background transition-colors hover:scale-[1.02] active:scale-95"
+                        >
+                            <Download size={20} />
+                            <span>Export Proof</span>
+                        </button>
+
+                        <Link to="/create" className="flex w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold items-center justify-center space-x-2 shadow-lg shadow-slate-900/10 hover:scale-[1.02] transition-transform">
+                            <span>Document Help</span>
                         </Link>
-                        <Link to="/receipts" className="flex-1 py-4 bg-surface border border-border text-foreground rounded-2xl font-bold text-center hover:bg-background transition-colors">
-                            All History
+                        
+                        <Link to="/receipts" className="flex w-full py-4 bg-surface border border-border text-foreground rounded-2xl font-bold items-center justify-center hover:bg-background transition-colors hover:scale-[1.02] active:scale-95">
+                            <span>All History</span>
                         </Link>
                     </div>
                 </div>

@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../../services/store';
 import { makeReminderMessage } from '../../utils/reminderHelper';
 import { Layout } from '../../app/Layout';
-import { Plus, CheckCircle2, Clock, XCircle, HelpCircle, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle2, Clock, XCircle, HelpCircle, Trash2, Check, X } from 'lucide-react';
 import { ReceiptStatus } from '../../types';
 import type { Receipt } from '../../types';
 
@@ -17,10 +17,11 @@ function StatusPill({ status }: { status: ReceiptStatus }) {
 }
 
 export function ReceiptsPage() {
-    const { receipts, users, loading, currentUser, deleteReceipt } = useStore();
+    const { receipts, users, loading, currentUser, deleteReceipt, claimReceipt, rejectReceipt } = useStore();
     const [tab, setTab] = useState<Tab>('SENT');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [tagFilter, setTagFilter] = useState<string>('ALL');
+    const navigate = useNavigate();
 
     const myUserId = currentUser?.id || '';
 
@@ -197,10 +198,14 @@ export function ReceiptsPage() {
                                         ? `${displayLabel} (${otherPerson.institution})`
                                         : displayLabel;
 
-                                    const canClaim = !sent && (r.status === ReceiptStatus.AWAITING_SIGNUP || r.status === ReceiptStatus.AWAITING_CONNECTION);
+                                    const canAction = !sent && (r.status === ReceiptStatus.AWAITING_ACCEPTANCE);
 
                                     return (
-                                        <tr key={r.id} className="group hover:bg-background/40 transition-colors">
+                                        <tr 
+                                            key={r.id} 
+                                            onClick={() => navigate(`/receipt/${r.id}`)}
+                                            className="group hover:bg-background/40 transition-colors cursor-pointer"
+                                        >
                                             <td className="px-6 py-5 pl-8">
                                                 <StatusPill status={r.status} />
                                             </td>
@@ -231,13 +236,33 @@ export function ReceiptsPage() {
                                                 <div className="text-[9px] text-muted uppercase tracking-tighter">{new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                             </td>
                                             <td className="px-6 py-5 text-right pr-8">
-                                                <div className="flex justify-end items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {canClaim && (
-                                                        <Link to={`/claim?rid=${r.id}`} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[10px] font-bold shadow-lg shadow-slate-900/10 hover:scale-105 active:scale-95 transition-all">
-                                                            Claim
-                                                        </Link>
+                                                <div className="flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    {canAction && (
+                                                        <>
+                                                            <button 
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    if(window.confirm("Reject this receipt?")) await rejectReceipt(r.id);
+                                                                }}
+                                                                className="p-2 bg-surface border border-border text-muted hover:text-red-500 hover:border-red-500 rounded-lg transition-colors"
+                                                                title="Reject"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    await claimReceipt(r.id);
+                                                                }}
+                                                                className="px-3 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[10px] font-bold shadow-lg shadow-slate-900/10 hover:scale-105 active:scale-95 transition-all flex items-center gap-1"
+                                                            >
+                                                                <span>Accept</span>
+                                                                <Check size={14} />
+                                                            </button>
+                                                        </>
                                                     )}
-                                                    {sent && (r.status === ReceiptStatus.AWAITING_SIGNUP || r.status === ReceiptStatus.AWAITING_CONNECTION) && (
+                                                    
+                                                    {sent && (r.status === ReceiptStatus.AWAITING_SIGNUP || r.status === ReceiptStatus.AWAITING_CONNECTION || r.status === ReceiptStatus.AWAITING_ACCEPTANCE) && (
                                                         <>
                                                             <button onClick={() => copyReminder(r.id)} className="px-3 py-2 bg-surface border border-border text-muted rounded-lg text-[10px] font-bold hover:bg-background transition-colors">
                                                                 Remind
@@ -247,9 +272,6 @@ export function ReceiptsPage() {
                                                             </button>
                                                         </>
                                                     )}
-                                                    <Link to={`/receipt/${r.id}`} className="p-2 text-muted hover:text-foreground transition-colors bg-surface hover:bg-background rounded-lg border border-transparent hover:border-border">
-                                                        <Plus size={16} />
-                                                    </Link>
                                                 </div>
                                             </td>
                                         </tr>

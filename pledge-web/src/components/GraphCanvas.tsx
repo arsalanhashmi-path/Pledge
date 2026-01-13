@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import * as d3 from 'd3';
 import type { GraphPayload, GraphNode, GraphLink } from '../types';
 
@@ -9,11 +9,15 @@ interface GraphCanvasProps {
     filter?: 'ALL' | 'GAVE' | 'RECEIVED';
 }
 
+export interface GraphCanvasRef {
+    centerOnUser: () => void;
+}
+
 /**
  * GraphCanvas Reconstruction
  * Focus: Stability, Performance, Zero-Jitter
  */
-export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter = 'ALL' }: GraphCanvasProps) => {
+export const GraphCanvas = React.memo(forwardRef<GraphCanvasRef, GraphCanvasProps>(({ data, onNodeClick, onEdgeClick, filter = 'ALL' }, ref) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -34,6 +38,38 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
         return () => observer.disconnect();
     }, []);
 
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+        centerOnUser: () => {
+             if (!svgRef.current || !gRef.current || dimensions.width === 0) return;
+             
+             const svg = d3.select(svgRef.current);
+             const meNode = Array.from(nodesRef.current.values()).find((n: any) => n.isMe);
+
+             // 1. Physically Reset "Me" to Center
+             if (meNode) {
+                 meNode.fx = dimensions.width / 2;
+                 meNode.fy = dimensions.height / 2;
+                 // Teleport for instant snap (prevents physics fight)
+                 meNode.x = dimensions.width / 2;
+                 meNode.y = dimensions.height / 2;
+             }
+
+             // 2. Reset Camera Zoom/Pan
+             // Since we teleported Me to center, we just need to reset the view to center (0,0 relative to center)
+             const transform = d3.zoomIdentity;
+             
+             svg.transition().duration(750)
+                // @ts-ignore
+                .call(svg.node().__zoomBehavior.transform, transform);
+
+             // 3. Restart Physics to fix edge lengths
+             if (simulationRef.current) {
+                 simulationRef.current.alpha(1).restart();
+             }
+        }
+    }));
+
     // One-time SVG Layer Setup
     useEffect(() => {
         if (!svgRef.current || dimensions.width === 0) return;
@@ -44,9 +80,15 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
             gRef.current = g.node();
 
             // Zoom support
-            svg.call(d3.zoom<SVGSVGElement, unknown>()
+            const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
                 .scaleExtent([0.1, 4])
-                .on("zoom", (event) => g.attr("transform", event.transform)));
+                .on("zoom", (event) => g.attr("transform", event.transform));
+            
+            // Attach zoom behavior to the node so we can access it later if needed (though D3 stores it internally)
+            // @ts-ignore
+            svg.node().__zoomBehavior = zoomBehavior;
+
+            svg.call(zoomBehavior);
 
             // Layers
             g.append("g").attr("class", "links-layer");
@@ -84,11 +126,9 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
 
         // Cleanup nodes that were removed from the array
         const activeIds = new Set(data.nodes.map(n => n.id));
-        nodesRef_current_cleanup: {
-            const keys = Array.from(nodesRef.current.keys());
-            for (const id of keys) {
-                if (!activeIds.has(id)) nodesRef.current.delete(id);
-            }
+        const keys = Array.from(nodesRef.current.keys());
+        for (const id of keys) {
+            if (!activeIds.has(id)) nodesRef.current.delete(id);
         }
 
         const currentLinks = data.links.map(l => ({ ...l }));
@@ -96,14 +136,14 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
         // 2. Simulation Configuration
         if (!simulationRef.current) {
             simulationRef.current = d3.forceSimulation()
-                .force("charge", d3.forceManyBody().strength(-2000)) // Slightly stronger repulsion
-                .force("center", d3.forceCenter(width / 2, height / 2))
-                .force("collide", d3.forceCollide().radius(90).strength(1));
+                .force("charge", d3.forceManyBody().strength(-1500)) // Reduced repulsion for closer nodes
+                // Remove forceCenter to allow "Me" node to act as the true anchor without conflict
+                .force("collide", d3.forceCollide().radius(100).strength(1)); // Smaller collision radius
         }
 
         const sim = simulationRef.current;
         sim.nodes(currentNodes);
-        sim.force("link", d3.forceLink(currentLinks).id((d: any) => d.id).distance(200).strength(1));
+        sim.force("link", d3.forceLink(currentLinks).id((d: any) => d.id).distance(180).strength(1)); // Significantly reduced distance
 
         // Anchor "Me" Node Always
         currentNodes.forEach(n => {
@@ -116,8 +156,12 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
             }
         });
 
-        // Smooth restart with very low alpha for filter changes (minimal jitter)
-        sim.alpha(0.2).alphaDecay(0.04).restart();
+        // Manually tick for equilibrium before first render
+        // This prevents the "jitter" on load
+        sim.alpha(1);
+        for (let i = 0; i < 100; ++i) sim.tick();
+        sim.alpha(0); // Stop simulation so it renders static at equilibrium
+        sim.restart();
 
         // 3. Rendering (D3 Data Join)
         const g = d3.select(gRef.current);
@@ -161,46 +205,55 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
                             .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
                             .on("end", (e, d) => {
                                 if (!e.active) sim.alphaTarget(0);
-                                if (!d.isMe) { d.fx = null; d.fy = null; }
+                                d.fx = null; d.fy = null;
                             })
                         );
 
                     // Physical Node (Circle)
                     group.append("circle")
                         .attr("class", "node-circle")
-                        .attr("fill", "var(--surface)")
+                        .attr("fill", "var(--background)")
+                        .attr("fill-opacity", 0.9)
                         .style("filter", "url(#drop-shadow)");
 
                     // Identity Card (Unified name + stats)
                     const card = group.append("g").attr("class", "node-card")
-                        .attr("transform", "translate(0, 36)");
+                        .attr("transform", "translate(0, 32)");
 
+                    // Card Background
                     card.append("rect").attr("class", "card-bg")
-                        .attr("rx", 8).attr("ry", 8)
-                        .attr("fill", "var(--surface)")
+                        .attr("rx", 10).attr("ry", 10)
+                        .attr("fill", "var(--background)")
+                        .attr("fill-opacity", 0.85) // Increased opacity for better contrast
                         .attr("stroke", "var(--border)")
-                        .style("backdrop-filter", "blur(12px)");
+                        .attr("stroke-width", 1.5)
+                        .style("backdrop-filter", "blur(12px)"); // Increased blur for better premium feel
 
-                    const stats = card.append("g").attr("class", "card-stats")
-                        .attr("transform", "translate(0, 14)");
+                    // Stats Group
+                    const stats = card.append("g").attr("class", "card-stats");
 
                     // Stats: OUT
                     const out = stats.append("g").attr("class", "stat-out");
                     out.append("text").attr("class", "label").attr("dx", -20).attr("dy", 0)
-                        .attr("font-size", "7px").attr("font-weight", "900").attr("fill", "var(--muted)").text("OUT");
+                        .attr("font-size", "7px").attr("font-weight", "900")
+                        .attr("fill", "var(--slate-500)") // More prominent muted color
+                        .text("OUT");
                     out.append("text").attr("class", "value").attr("dx", -4).attr("dy", 0)
-                        .attr("font-size", "11px").attr("font-weight", "900").attr("fill", "var(--color-verified)");
+                        .attr("font-size", "10px").attr("font-weight", "900").attr("fill", "var(--color-verified)");
 
                     // Stats: IN
                     const inc = stats.append("g").attr("class", "stat-in");
                     inc.append("text").attr("class", "label").attr("dx", 10).attr("dy", 0)
-                        .attr("font-size", "7px").attr("font-weight", "900").attr("fill", "var(--muted)").text("IN");
+                        .attr("font-size", "7px").attr("font-weight", "900")
+                        .attr("fill", "var(--slate-500)") // More prominent muted color
+                        .text("IN");
                     inc.append("text").attr("class", "value").attr("dx", 24).attr("dy", 0)
-                        .attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#6366f1");
+                        .attr("font-size", "10px").attr("font-weight", "900").attr("fill", "var(--color-indigo)"); // Using variable for consistency
 
+                    // Name Text
                     card.append("text").attr("class", "card-name")
-                        .attr("text-anchor", "middle").attr("font-size", "11px")
-                        .attr("font-weight", "700").attr("fill", "var(--foreground)");
+                        .attr("text-anchor", "middle").attr("font-size", "10px")
+                        .attr("font-weight", "800").attr("fill", "var(--foreground)");
 
                     return group;
                 },
@@ -232,7 +285,7 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
             // Update main circle
             el.select(".node-circle")
                 .transition().duration(400)
-                .attr("r", 24 + Math.min(d.strength * 2, 16))
+                .attr("r", 20 + Math.min(d.strength * 1.5, 12))
                 .attr("stroke", d.statusMix.verified >= d.statusMix.pending ? "#10b981" : "#f59e0b")
                 .attr("stroke-width", d.statusMix.verified > 0 ? 3 : 2);
 
@@ -241,37 +294,49 @@ export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter 
             const card = el.select(".node-card");
             const cardStats = card.select(".card-stats");
 
-            const cardWidth = Math.max(name.length * 7 + 24, hasStats ? (hasSent && hasRec ? 72 : 40) : 0);
-            const cardHeight = hasStats ? 44 : 24;
+            // Dimensions Calc
+            // Name: ~6px per char approximation for bold 10px
+            const nameWidth = Math.max(40, name.length * 6 + 20); 
+            // Stats: narrower since stacked below? No, side by side below name.
+            // "OUT 5  IN 2" -> ~60px
+            const statsWidth = hasStats ? ((hasSent && hasRec) ? 70 : 40) : 0;
+            
+            const cardWidth = Math.max(nameWidth, statsWidth);
+            const cardHeight = hasStats ? 42 : 22; // Taller if stats present
+            const yOffset = hasStats ? -20 : -11;
 
             card.select(".card-bg")
                 .transition().duration(400)
                 .attr("x", -cardWidth / 2)
-                .attr("y", -12)
+                .attr("y", yOffset)
                 .attr("width", cardWidth)
                 .attr("height", cardHeight);
-
-            cardStats.style("display", hasStats ? "" : "none");
-            cardStats.select(".stat-out").style("display", hasSent ? "" : "none")
-                .attr("transform", hasRec ? "translate(-2, 0)" : "translate(12, 0)")
-                .select(".value").text(d.interactionStats?.sent ?? 0);
-            cardStats.select(".stat-in").style("display", hasRec ? "" : "none")
-                .attr("transform", hasSent ? "translate(2, 0)" : "translate(-12, 0)")
-                .select(".value").text(d.interactionStats?.received ?? 0);
 
             card.select(".card-name")
                 .text(name)
                 .transition().duration(400)
-                .attr("dy", hasStats ? 26 : 5);
+                .attr("y", hasStats ? -6 : 4);
+
+            cardStats
+                .style("display", hasStats ? "" : "none")
+                .transition().duration(400)
+                .attr("transform", `translate(0, 10)`); // Below name
+
+            // Conditional visibility for stat parts
+            cardStats.select(".stat-out").style("display", hasSent ? "" : "none")
+                .attr("transform", hasRec ? "translate(-16, 0)" : "translate(0, 0)")
+                .select(".value").text(d.interactionStats?.sent ?? 0);
+                
+            cardStats.select(".stat-in").style("display", hasRec ? "" : "none")
+                .attr("transform", hasSent ? "translate(16, 0)" : "translate(0, 0)")
+                .select(".value").text(d.interactionStats?.received ?? 0);
         });
 
     }, [data, dimensions, filter, onNodeClick, onEdgeClick]);
 
     return (
-        <div ref={wrapperRef} className="w-full h-full relative overflow-hidden bg-[var(--background)] transition-colors duration-500">
+        <div ref={wrapperRef} className="w-full h-full relative overflow-hidden bg-transparent">
             <svg ref={svgRef} className="w-full h-full block" />
-            <div className="absolute inset-0 pointer-events-none bg-[var(--background-image-grid-pattern)]" />
-            <div className="absolute inset-0 pointer-events-none bg-[var(--background-image-radial-fade)]" />
         </div>
     );
-});
+}));
