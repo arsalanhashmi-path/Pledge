@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { Layout } from '../../app/Layout';
 import { useStore } from '../../services/store';
-import { ArrowLeft, CheckCircle2, Clock, XCircle, Download, FileText, History as HistoryIcon, PlusCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, XCircle, Download } from 'lucide-react';
 import { ReceiptStatus } from '../../types';
 import type { Receipt } from '../../types';
 

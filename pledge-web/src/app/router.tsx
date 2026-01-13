@@ -12,6 +12,8 @@ import { ClaimReceiptPage } from '../views/Receipts/ClaimReceiptPage';
 import { UserProfilePage } from '../views/Profile/UserProfilePage';
 import { NotificationsPage } from '../views/Notifications/NotificationsPage';
 import { LeaderboardPage } from '../views/Leaderboard/LeaderboardPage';
+import { InstitutionGraphPage } from '../views/Institutions/InstitutionGraphPage';
+import { MessagesPage } from '../views/Messages/MessagesPage';
 import { ConnectionsPage } from '../views/Connections/ConnectionsPage.tsx';
 import { SettingsPage } from '../views/Settings/SettingsPage';
 import { RequireAuth, RequireConfirmedEmail, RequireOnboarding } from './RequireAuth';
@@ -171,6 +173,30 @@ export const router = createBrowserRouter([
                         <RequireConfirmedEmail>
                             <RequireOnboarding>
                                 <LeaderboardPage />
+                            </RequireOnboarding>
+                        </RequireConfirmedEmail>
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: 'institutions',
+                element: (
+                    <RequireAuth>
+                        <RequireConfirmedEmail>
+                            <RequireOnboarding>
+                                <InstitutionGraphPage />
+                            </RequireOnboarding>
+                        </RequireConfirmedEmail>
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: 'messages',
+                element: (
+                    <RequireAuth>
+                        <RequireConfirmedEmail>
+                            <RequireOnboarding>
+                                <MessagesPage />
                             </RequireOnboarding>
                         </RequireConfirmedEmail>
                     </RequireAuth>

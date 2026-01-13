@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trophy } from 'lucide-react';
+import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trophy, Landmark, MessageCircle } from 'lucide-react';
 import { useStore } from '../services/store';
 import { useTheme } from './ThemeProvider';
 
@@ -39,9 +39,11 @@ const NavItem = ({ to, icon: Icon, label, active, onClick, className }: { to?: s
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
-    const { currentUser, signOut } = useStore();
+    const { currentUser, signOut, receipts } = useStore();
 
-    const handleSignOut = async () => {
+    const handleSignOut = async (e?: React.MouseEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
         await signOut();
         // Redirect handled by Router/RequireAuth
     };
@@ -49,6 +51,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const userInitial = currentUser?.email?.substring(0, 1).toUpperCase() || 'U';
 
     const { theme, toggleTheme } = useTheme();
+
+    // Calculate Stats
+    const helpGiven = receipts.filter(r => r.from_user_id === currentUser?.id && r.status === 'ACCEPTED').length;
+    const helpReceived = receipts.filter(r => r.to_user_id === currentUser?.id && r.status === 'ACCEPTED').length;
 
     return (
         <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
@@ -68,8 +74,45 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     >
                         {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                     </button>
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {userInitial}
+                    {/* Profile Dropdown */}
+                    <div className="relative group">
+                        <Link to="/settings" className="block relative z-10">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300 hover:scale-105 transition-transform cursor-pointer">
+                                {userInitial}
+                            </div>
+                        </Link>
+                        
+                        {/* Hover Content */}
+                        <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform group-hover:translate-y-0 translate-y-2 z-50 w-64">
+                            <div className="bg-surface rounded-2xl border border-border shadow-2xl p-4 space-y-4">
+                                {/* User Info */}
+                                <div className="border-b border-border pb-3">
+                                    <h3 className="font-bold text-foreground text-sm truncate">{currentUser?.first_name} {currentUser?.last_name}</h3>
+                                    <p className="text-[10px] text-muted truncate font-medium">{currentUser?.email}</p>
+                                </div>
+
+                                {/* Stats */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl text-center">
+                                        <div className="text-emerald-500 font-black text-lg leading-tight">{helpGiven}</div>
+                                        <div className="text-[8px] uppercase tracking-wider font-bold text-muted">Given</div>
+                                    </div>
+                                    <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl text-center">
+                                        <div className="text-amber-500 font-black text-lg leading-tight">{helpReceived}</div>
+                                        <div className="text-[8px] uppercase tracking-wider font-bold text-muted">Recvd</div>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <button 
+                                    onClick={handleSignOut}
+                                    className="w-full flex items-center justify-center space-x-2 p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors text-xs font-bold"
+                                >
+                                    <LogOut size={14} />
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -80,20 +123,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
                     <NavItem to="/connections" icon={Network} label="Connections" active={path === '/connections'} />
                     <NavItem to="/receipts" icon={Receipt} label="Receipts" active={path === '/receipts'} />
+                    <NavItem to="/institutions" icon={Landmark} label="Institutions" active={path === '/institutions'} />
                     <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" active={path === '/leaderboard'} />
+                    <NavItem to="/messages" icon={MessageCircle} label="Messages" active={path === '/messages'} />
                     <NavItem to="/notifications" icon={Bell} label="Notifications" active={path === '/notifications'} />
                     <NavItem to="/create" icon={PlusCircle} label="Create Proof" active={path === '/create'} />
                     <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
 
                     <div className="flex-1" />
 
-                    <button
-                        onClick={handleSignOut}
-                        className="flex flex-col md:flex-row items-center md:space-x-3 p-2 md:px-4 md:py-3 rounded-lg transition-colors text-slate-400 hover:text-red-600 hover:bg-red-50 w-full"
-                    >
-                        <LogOut size={20} />
-                        <span className="text-[10px] md:text-sm mt-1 md:mt-0 font-medium">Sign Out</span>
-                    </button>
+
                 </nav>
 
                 {/* Main Content Area */}

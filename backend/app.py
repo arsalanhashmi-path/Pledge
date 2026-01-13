@@ -499,6 +499,53 @@ def get_leaderboard():
         print(f"Leaderboard Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/institutions/graph', methods=['GET'])
+@authenticate_user
+def get_institution_graph():
+    try:
+        client = get_db()
+        
+        # Fetch relationships
+        rels_res = client.table('institution_relationships').select('*').gt('exchange_count', 0).execute()
+        rels = rels_res.data or []
+
+        # Extract unique nodes and calculate stats
+        institutions = {} # Map id -> {id, label, stats: {given: 0, received: 0}}
+        links = []
+
+        for r in rels:
+            src = r['from_institution']
+            tgt = r['to_institution']
+            count = r['exchange_count']
+            
+            # Ensure nodes exist in map
+            if src not in institutions:
+                institutions[src] = {'id': src, 'label': src, 'stats': {'given': 0, 'received': 0}}
+            if tgt not in institutions:
+                institutions[tgt] = {'id': tgt, 'label': tgt, 'stats': {'given': 0, 'received': 0}}
+            
+            # Update Stats
+            institutions[src]['stats']['given'] += count
+            institutions[tgt]['stats']['received'] += count
+            
+            links.append({
+                'source': src,
+                'target': tgt,
+                'value': count
+            })
+
+        nodes = list(institutions.values())
+
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'links': links
+        }), 200
+
+    except Exception as e:
+        print(f"Institution Graph Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

@@ -20,31 +20,34 @@ export const SettingsPage: React.FC = () => {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const [form, setForm] = useState({
-        first_name: '',
-        last_name: '',
+        first_name: currentUser?.first_name || '',
+        last_name: currentUser?.last_name || '',
         phone: '',
         date_of_birth: '',
-        institution: '',
+        institution: currentUser?.institution || '',
     });
 
     useEffect(() => {
         (async () => {
             if (!currentUser?.id) return;
 
+            // Fetch extra details not in store (phone, dob)
+            // Fix: Table name is 'public_profiles', not 'profiles'
             const { data } = await supabase
-                .from('profiles')
+                .from('public_profiles')
                 .select('first_name,last_name,phone,date_of_birth,institution')
                 .eq('user_id', currentUser.id)
                 .maybeSingle();
 
             if (data) {
-                setForm({
-                    first_name: data.first_name ?? '',
-                    last_name: data.last_name ?? '',
+                setForm(prev => ({
+                    ...prev,
+                    first_name: data.first_name ?? prev.first_name,
+                    last_name: data.last_name ?? prev.last_name,
                     phone: data.phone ?? '',
                     date_of_birth: data.date_of_birth ?? '',
-                    institution: data.institution ?? '',
-                });
+                    institution: data.institution ?? prev.institution,
+                }));
             }
             setLoading(false);
         })();
@@ -73,8 +76,9 @@ export const SettingsPage: React.FC = () => {
 
         setSaving(true);
 
-        const { error } = await supabase.from('profiles').upsert({
+        const { error } = await supabase.from('public_profiles').upsert({
             user_id: currentUser?.id,
+            email: currentUser?.email, // Required by NOT NULL constraint
             first_name: form.first_name.trim(),
             last_name: form.last_name.trim(),
             phone: form.phone.trim(),
