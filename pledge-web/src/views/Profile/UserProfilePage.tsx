@@ -22,6 +22,16 @@ export const UserProfilePage: React.FC = () => {
     const [aiStatements, setAiStatements] = useState<Record<string, string>>({});
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+    // Profile Details State
+    const [userProfile, setUserProfile] = useState<{
+        first_name: string;
+        last_name: string;
+        email: string;
+        institution: string;
+        created_at: string;
+    } | null>(null);
+    const [lastInteraction, setLastInteraction] = useState<string | null>(null);
+
     const isOwner = currentUser?.id === userId;
 
     useEffect(() => {
@@ -35,6 +45,33 @@ export const UserProfilePage: React.FC = () => {
                 .eq('status', ReceiptStatus.ACCEPTED)
                 .is('is_public', true)
                 .order('created_at', { ascending: false });
+
+            // Fetch User Profile
+            const { data: profile } = await supabase
+                .from('public_profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .maybeSingle();
+            
+            if (profile) {
+                setUserProfile(profile);
+            }
+
+            // Calculate Last Interaction (if viewing someone else)
+            if (currentUser && currentUser.id !== userId) {
+                // Find latest receipt exchanged
+                const { data: interaction } = await supabase
+                    .from('receipts')
+                    .select('created_at')
+                    .or(`and(from_user_id.eq.${currentUser.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${currentUser.id})`)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                
+                if (interaction) {
+                    setLastInteraction(interaction.created_at);
+                }
+            }
 
             if (data) {
                 const mapped: Receipt[] = data.map((d: any) => ({
@@ -109,16 +146,31 @@ export const UserProfilePage: React.FC = () => {
                 <header className="flex flex-col items-center text-center space-y-6">
                     <div className="relative group">
                         <div className="w-24 h-24 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[2rem] flex items-center justify-center text-4xl font-bold shadow-2xl transition-transform group-hover:scale-105 group-hover:rotate-3">
-                            {userId?.substring(0, 1).toUpperCase()}
+                            {userProfile ? userProfile.first_name.charAt(0).toUpperCase() : userId?.substring(0, 1).toUpperCase()}
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-surface">
                             <Award size={16} />
                         </div>
                     </div>
 
-                    <div className="space-y-1">
-                        <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Trust Portfolio</h1>
-                        <p className="text-muted font-bold text-xs uppercase tracking-widest">Verified Digital Reputation • {userId?.split('-')[0]}</p>
+                    <div className="space-y-2">
+                        <h1 className="text-4xl font-extrabold text-foreground tracking-tight">
+                            {userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Loading...'}
+                        </h1>
+                        <div className="flex flex-col items-center gap-1 text-muted text-sm font-medium">
+                            <span>{userProfile?.institution}</span>
+                            <div className="flex gap-2 text-xs opacity-60">
+                                <span>{userProfile?.email}</span>
+                                <span>•</span>
+                                <span>Joined {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : '...'}</span>
+                            </div>
+                            {lastInteraction && (
+                                <div className="mt-2 px-3 py-1 bg-surface border border-border rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+                                    Last Interaction: {new Date(lastInteraction).toLocaleDateString()}
+                                </div>
+                            )}
+                        </div>
+                        {!userProfile && <p className="text-muted font-bold text-xs uppercase tracking-widest">Verified Digital Reputation • {userId?.split('-')[0]}</p>}
                     </div>
 
                     {/* View Switcher */}

@@ -445,6 +445,60 @@ def reject_receipt():
         print(f"Reject Receipt Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/leaderboard', methods=['GET'])
+@authenticate_user
+def get_leaderboard():
+    try:
+        client = get_db()
+        
+        # 1. Fetch Aggregated Stats (Optimized)
+        stats_res = client.table('leaderboard_stats').select('*').execute()
+        
+        if not stats_res.data:
+             return jsonify({'success': True, 'top_givers': [], 'top_receivers': []}), 200
+
+        # 2. Fetch User Profiles (Batch)
+        # Only fetch profiles for users who are in the leaderboard stats
+        user_ids = [r['user_id'] for r in stats_res.data]
+        profiles_res = client.table('public_profiles').select('user_id, first_name, last_name, institution').in_('user_id', user_ids).execute()
+        profiles_map = {p['user_id']: p for p in profiles_res.data}
+
+        # 3. Format & Sort
+        def format_entry(stat, type_key):
+            uid = stat['user_id']
+            profile = profiles_map.get(uid, {})
+            return {
+                'user_id': uid,
+                'name': f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or 'Unknown User',
+                'institution': profile.get('institution', 'Unknown'),
+                'count': stat.get(type_key, 0)
+            }
+
+        # Python-side sorting is fine for <10k users. 
+        # For larger scales, we would query the DB with .order().limit() separately for givers/receivers.
+        
+        top_givers = sorted(
+            [format_entry(s, 'given_count') for s in stats_res.data if s.get('given_count', 0) > 0],
+            key=lambda x: x['count'], 
+            reverse=True
+        )[:50]
+
+        top_receivers = sorted(
+            [format_entry(s, 'received_count') for s in stats_res.data if s.get('received_count', 0) > 0],
+            key=lambda x: x['count'], 
+            reverse=True
+        )[:50]
+
+        return jsonify({
+            'success': True, 
+            'top_givers': top_givers, 
+            'top_receivers': top_receivers
+        }), 200
+
+    except Exception as e:
+        print(f"Leaderboard Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

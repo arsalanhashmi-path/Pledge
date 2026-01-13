@@ -10,6 +10,8 @@ import { ReceiptsPage } from '../views/Receipts/ReceiptsPage';
 import { ReceiptDetailPage } from '../views/Receipts/ReceiptDetailPage';
 import { ClaimReceiptPage } from '../views/Receipts/ClaimReceiptPage';
 import { UserProfilePage } from '../views/Profile/UserProfilePage';
+import { NotificationsPage } from '../views/Notifications/NotificationsPage';
+import { LeaderboardPage } from '../views/Leaderboard/LeaderboardPage';
 import { ConnectionsPage } from '../views/Connections/ConnectionsPage.tsx';
 import { SettingsPage } from '../views/Settings/SettingsPage';
 import { RequireAuth, RequireConfirmedEmail, RequireOnboarding } from './RequireAuth';
@@ -145,6 +147,30 @@ export const router = createBrowserRouter([
                         <RequireConfirmedEmail>
                             <RequireOnboarding>
                                 <ReceiptsPage />
+                            </RequireOnboarding>
+                        </RequireConfirmedEmail>
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: 'notifications',
+                element: (
+                    <RequireAuth>
+                        <RequireConfirmedEmail>
+                            <RequireOnboarding>
+                                <NotificationsPage />
+                            </RequireOnboarding>
+                        </RequireConfirmedEmail>
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: 'leaderboard',
+                element: (
+                    <RequireAuth>
+                        <RequireConfirmedEmail>
+                            <RequireOnboarding>
+                                <LeaderboardPage />
                             </RequireOnboarding>
                         </RequireConfirmedEmail>
                     </RequireAuth>

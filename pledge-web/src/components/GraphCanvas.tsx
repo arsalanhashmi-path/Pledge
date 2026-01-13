@@ -236,7 +236,7 @@ export const GraphCanvas = React.memo(forwardRef<GraphCanvasRef, GraphCanvasProp
                     const out = stats.append("g").attr("class", "stat-out");
                     out.append("text").attr("class", "label").attr("dx", -20).attr("dy", 0)
                         .attr("font-size", "7px").attr("font-weight", "900")
-                        .attr("fill", "var(--slate-500)") // More prominent muted color
+                        .attr("fill", "var(--muted)") // Fixed: use --muted
                         .text("OUT");
                     out.append("text").attr("class", "value").attr("dx", -4).attr("dy", 0)
                         .attr("font-size", "10px").attr("font-weight", "900").attr("fill", "var(--color-verified)");
@@ -245,10 +245,10 @@ export const GraphCanvas = React.memo(forwardRef<GraphCanvasRef, GraphCanvasProp
                     const inc = stats.append("g").attr("class", "stat-in");
                     inc.append("text").attr("class", "label").attr("dx", 10).attr("dy", 0)
                         .attr("font-size", "7px").attr("font-weight", "900")
-                        .attr("fill", "var(--slate-500)") // More prominent muted color
+                        .attr("fill", "var(--muted)") // Fixed: use --muted
                         .text("IN");
                     inc.append("text").attr("class", "value").attr("dx", 24).attr("dy", 0)
-                        .attr("font-size", "10px").attr("font-weight", "900").attr("fill", "var(--color-indigo)"); // Using variable for consistency
+                        .attr("font-size", "10px").attr("font-weight", "900").attr("fill", "var(--accent)"); // Fixed: use --accent
 
                     // Name Text
                     card.append("text").attr("class", "card-name")

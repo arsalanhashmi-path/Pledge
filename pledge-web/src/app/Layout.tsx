@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon } from 'lucide-react';
+import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trophy } from 'lucide-react';
 import { useStore } from '../services/store';
 import { useTheme } from './ThemeProvider';
 
@@ -80,6 +80,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
                     <NavItem to="/connections" icon={Network} label="Connections" active={path === '/connections'} />
                     <NavItem to="/receipts" icon={Receipt} label="Receipts" active={path === '/receipts'} />
+                    <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" active={path === '/leaderboard'} />
+                    <NavItem to="/notifications" icon={Bell} label="Notifications" active={path === '/notifications'} />
                     <NavItem to="/create" icon={PlusCircle} label="Create Proof" active={path === '/create'} />
                     <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
 
@@ -105,9 +107,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Mobile Bottom Tab Bar */}
             <nav className="md:hidden h-16 border-t border-border bg-surface flex justify-around items-center px-2 fixed bottom-0 w-full z-50 pb-safe">
                 <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
-                <NavItem to="/connections" icon={Network} label="Connections" active={path === '/connections'} />
-                <NavItem to="/receipts" icon={Receipt} label="Receipts" active={path === '/receipts'} />
+                <NavItem to="/connections" icon={Network} label="Network" active={path === '/connections'} />
                 <NavItem to="/create" icon={PlusCircle} label="Create" active={path === '/create'} />
+                <NavItem to="/leaderboard" icon={Trophy} label="Top" active={path === '/leaderboard'} />
+                <NavItem to="/notifications" icon={Bell} label="Activity" active={path === '/notifications'} />
                 <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
                 <NavItem onClick={handleSignOut} icon={LogOut} label="Log Out" active={false} className="text-slate-400 hover:text-red-500" />
             </nav>

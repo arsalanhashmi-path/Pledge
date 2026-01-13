@@ -2,186 +2,154 @@
 
 ## 1. System Overview
 
-**Pledge** is a trust-based professional network that enables users to create cryptographic "proofs" (receipts) of their impact and helpfulness. The system creates a real-time trust graph based on these verified interactions.
+**Pledge** is a trust-based professional network. This document details the full technical stack, database schema, API services, and page-level implementation details.
 
-### Architecture
+### Architecture Stack
 
-- **Frontend**: React (Vite) + TypeScript + Tailwind CSS (Shadcn/UI theme).
-- **Backend Service**: Python (Flask) API for complex business logic, referrals, and state transitions.
-- **Database**: Supabase (PostgreSQL) + Auth.
-- **State Management**: React Context + optimistic local updates.
+- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS (Zinc Theme).
+- **Backend Service**: Flask (Python) on Port 5000. Handles complex business logic (e.g., email-based late binding, referrals).
+- **Database**: Supabase (PostgreSQL 15) with Row Level Security (RLS).
+- **Auth**: Supabase Auth (JWT).
 
 ---
 
 ## 2. Database Schema (PostgreSQL)
 
-### 2.1 Enum: `receipt_status`
+### 2.1 Core Tables
 
-- `AWAITING_SIGNUP`: Recipient has not signed up yet.
-- `AWAITING_CONNECTION`: Recipient is signed up but not connected to sender.
-- `AWAITING_ACCEPTANCE`: Recipient is connected but hasn't verified the receipt.
-- `ACCEPTED`: Recipient has verified the receipt.
-- `REJECTED`: Recipient has rejected the receipt.
+| Table             | RLS Policy                                              | Description                                             |
+| ----------------- | ------------------------------------------------------- | ------------------------------------------------------- |
+| `public_profiles` | **SELECT**: Public. **UPDATE**: Owner.                  | User identity (Name, Inst., Email).                     |
+| `connections`     | **SELECT/ALL**: Involved parties (`low_id`, `high_id`). | Undirected graph edges. `accepted=true` means verified. |
+| `receipts`        | **SELECT**: Sender OR Recipient OR Email Match.         | The proof unit. Links to `connections`.                 |
 
-### 2.2 Table: `public_profiles`
-
-Publicly viewable user information.
-| Column | Type | Description |
-|---|---|---|
-| `user_id` | UUID (PK) | References `auth.users(id)` |
-| `email` | TEXT | User email |
-| `first_name` | TEXT | First name |
-| `last_name` | TEXT | Last name |
-| `institution` | TEXT | Organization/School |
-| `created_at` | TIMESTAMPTZ | Creation timestamp |
-
-### 2.3 Table: `connections`
-
-Represents an undirected edge between two users. Enforced uniqueness via `low_id < high_id`.
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Connection ID |
-| `low_id` | UUID | User ID (lexicographically smaller) |
-| `high_id` | UUID | User ID (lexicographically larger) |
-| `requested_by` | UUID | ID of user who initiated the request |
-| `accepted` | BOOLEAN | `true` if fully connected, `false` if pending |
-| `requested_at` | TIMESTAMPTZ | Time of request |
-| `accepted_at` | TIMESTAMPTZ | Time of acceptance |
-**Constraints**: Unique (`low_id`, `high_id`), Check (`low_id < high_id`).
-
-### 2.4 Table: `receipts`
-
-The core atomic unit of "Proof".
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Receipt ID |
-| `from_user_id` | UUID | Sender (Creator) ID |
-| `to_user_id` | UUID (Nullable) | Recipient ID (null if not on platform) |
-| `recipient_email` | TEXT | Email text for late-binding |
-| `connection_id` | UUID (FK) | Link to `connections` table |
-| `tags` | TEXT[] | Array of tags (e.g. #mentorship) |
-| `description` | TEXT | Description of impact |
-| `is_public` | BOOLEAN | Visibility flag |
-| `status` | receipt_status | Current state |
-| `created_at` | TIMESTAMPTZ | Creation time |
-| `accepted_at` | TIMESTAMPTZ | Verification time |
+(See `schema.sql` for full constraints and triggers).
 
 ---
 
 ## 3. Backend API Services (`app.py`)
 
+Flask API handles operations that require atomic checks across multiple tables or "Late Binding" logic (interacting with non-users).
+
 ### 3.1 Authentication
 
 **Middleware**: `@authenticate_user`
 
-- Verifies Supabase JWT token from `Authorization` header.
-- Sets `g.user` context for the request.
+- Validates the `Authorization: Bearer <token>` header against Supabase Auth.
+- Injects `g.user` (UUID, Email) into the request context.
 
-### 3.2 User Onboarding
+### 3.2 Key Endpoints
 
-**Endpoint**: `POST /api/onboarding`
-**Function**: `onboarding()`
-
-1. **Profile Creation**: Upserts `public_profiles` with name/institution.
-2. **Referral Handling**:
-   - If `referrer_id` is present, automatically creates an `accepted=True` connection between the new user and referrer.
-3. **Receipt Recovery (Orphaned Receipts)**:
-   - Scans `receipts` table for records where `recipient_email` matches new user's email AND `to_user_id` is null.
-   - For each sender of such receipts:
-     - Checks/Creates a Connection between New User and Sender.
-     - Updates all matching receipts: sets `to_user_id = new_user.id`, `connection_id`, and status `AWAITING_ACCEPTANCE`.
-
-### 3.3 Connection Management
-
-**Endpoint**: `POST /api/connections/request`
-**Function**: `request_connection()`
-
-1. Looks up target user by email.
-2. Checks for existing connection (rejects if exists).
-3. Inserts new `connections` row with `accepted=False`.
-
-**Endpoint**: `POST /api/connections/accept`
-**Function**: `accept_connection()`
-
-1. Updates `connections` table: set `accepted=True`, `accepted_at=NOW()`.
-
-**Endpoint**: `POST /api/connections/remove`
-**Function**: `remove_connection()`
-
-1. Deletes row from `connections`.
-
-### 3.4 Receipt Lifecycle
-
-**Endpoint**: `POST /api/receipts/create`
-**Function**: `create_receipt()`
-
-1. **Recipient Lookup**: Checks `public_profiles` for email.
-2. **Status Determination**:
-   - No User Found -> `AWAITING_SIGNUP`
-   - User Found, No Connection -> `AWAITING_CONNECTION`
-   - User Found, Connected -> `AWAITING_ACCEPTANCE`
-3. **Persist**: Inserts into `receipts`.
-
-**Endpoint**: `POST /api/receipts/claim`
-**Function**: `claim_receipt()`
-
-1. **Authorization**: Checks if `to_user_id == currentUser` OR `recipient_email == currentUser.email` (Late Binding).
-2. **Late Linking**:
-   - If connection is missing (e.g. email match case), automatically creates/upserts `connections` (accepted=True).
-   - Updates `receipts` to link `to_user_id` and `connection_id`.
-3. **Verification**: Sets status `ACCEPTED`.
-
-**Endpoint**: `POST /api/receipts/reject`
-**Function**: `reject_receipt()`
-
-1. Validates `to_user_id` matches requestor.
-2. Sets status `REJECTED`.
+- **`POST /api/onboarding`**: Upserts profile, auto-accepts referral connection, and executes "Receipt Recovery" (linking orphaned receipts sent to this email before signup).
+- **`POST /api/receipts/create`**: Logic:
+  - Finds Recipient via Email.
+  - Determines Status (`AWAITING_SIGNUP` vs `AWAITING_ACCEPTANCE`).
+  - Inserts Receipt.
+- **`POST /api/receipts/claim`**:
+  - Verifies ownership (ID match or Email match).
+  - **Auto-Connect**: If no connection exists, creates one instantly.
+  - Updates status to `ACCEPTED`.
 
 ---
 
-## 4. Frontend Architecture
+## 4. Detailed Page Implementations
 
-### 4.1 State Management (`store.tsx`)
+### 4.1 Home Dashboard (`HomePage.tsx`)
 
-**Context**: `StoreContext`
-**Data Sources**:
+**Route**: `/`
+**Primary Component**: `GraphCanvas.tsx`
 
-- **Supabase Direct**: `public_profiles`, `receipts` (Read-only lists, real-time subscriptions).
-- **Backend API**: Mutations (Create, Accept, Reject).
-  **Functions**:
-- `fetchData()`: Aggregates profile, receipt, and connection data. Derives `allUsers` cache.
-- `createReceipt(...)`: Calls API -> Optimistic Update.
-- `claimReceipt(...)`: Calls API -> Refetches.
-- `addConnection(...)`: Calls API -> Refetches.
+- **Data Source**: `useStore().connections` (Nodes), `useStore().receipts` (Edges/Metadata).
+- **Visualization Logic**:
+  - Uses `react-force-graph-2d` (or custom canvas implementation).
+  - **Nodes**: Central 'Me' node + all `connections` where `accepted=true`.
+  - **Node Size**: Calculated based on interaction volume (count of receipts).
+  - **Physics**: Nodes repel each other; links act as springs.
+- **State**: Local `filter` state ('ALL', 'GAVE', 'RECEIVED') filters the visible nodes.
 
-### 4.2 Graph Visualization (`HomePage.tsx`)
+### 4.2 Create Receipt Flow (`CreateReceiptPage.tsx`)
 
-**Logic**:
+**Route**: `/receipts/create`
 
-1. **Node generation**:
-   - 'Me' Node (Center)
-   - Nodes for every accepted connection.
-2. **Edge generation**:
-   - Links based on `connections` table.
-3. **Metadata Aggregation**:
-   - Calculates `sentCount` / `receivedCount` by filtering the `receipts` array for each connection pair.
-   - Filters nodes based on `GAVE` vs `RECEIVED` filter state.
+- **Form State**: `currentStep`, `formData` (email, description, tags, is_public).
+- **Interaction**:
+  1.  User enters email -> Debounced lookup (optional UI hint).
+  2.  User submits -> call `store.createReceipt()`.
+  3.  `createReceipt` calls `POST /api/receipts/create`.
+  4.  **Optimistic Update**: Not needed; detailed response includes the new receipt, store re-fetches.
 
-### 4.3 Key Components
+### 4.3 Receipt Detail & Verification (`ReceiptDetailPage.tsx`)
 
-- **`Layout`**: Global wrapper, manages navigation and responsiveness.
-- **`ReceiptDetailPage`**: Displays proof status. Uses conditional styling for states (Green=Accepted, Red=Rejected).
-- **`ConnectionsPage`**: Tabs for 'My Network' vs 'Requests'.
+**Route**: `/receipts/:id`
+
+- **Data Fetching**:
+  - `useParams()` gets ID.
+  - `supabase.from('receipts').select('*, from:..., to:...')` fetches specific receipt details.
+- **Dynamic UI**:
+  - **Status Indicators**: Color-coded banners (Green/Red/Amber) based on `row.status`.
+  - **Action Panel**:
+    - If `currentUser.id === row.to_user_id` AND `status !== ACCEPTED`: Show **Claim/Reject** buttons.
+  - **Print Mode**: CSS `@media print` hides sidebar/nav, isolates `#printable-proof-card`.
+- **Actions**:
+  - **Claim**: Calls `store.claimReceipt(id)` -> `POST /api/receipts/claim`.
+  - **Reject**: Calls `store.rejectReceipt(id)` -> `POST /api/receipts/reject`.
+
+### 4.4 User Profile (`UserProfilePage.tsx`)
+
+**Route**: `/u/:userId` (or `/profile`)
+
+- **Data Fetching**:
+  1.  **Profile**: `supabase.from('public_profiles').eq('user_id', userId)` -> Name, Institution, Joined Date.
+  2.  **Receipts**: `supabase.from('receipts').eq('to_user_id', userId).eq('status', 'ACCEPTED')` -> The "Portfolio".
+  3.  **Last Interaction**: If `currentUser !== userId`, fetch latest receipt between the two for context.
+- **Views**:
+  - **Portfolio Mode**: Grid of receipt cards.
+  - **CV Mode**: Chronological text list.
+- **AI Feature**: Client-side loop calls `generateCARStatement(description)` for each receipt to "polish" the text locally.
+
+### 4.5 Connections Manager (`ConnectionsPage.tsx`)
+
+**Route**: `/connections`
+
+- **Logic**:
+  - `useStore().connections` contains mix of accepted (`accepted=true`) and pending (`accepted=false`) records.
+  - **Tabs**:
+    - _My Network_: Filter `c.accepted === true`.
+    - _Requests_: Filter `c.accepted === false` AND `c.requested_by !== currentUser.id`.
+- **Actions**:
+  - **Accept**: `store.acceptConnection(id)` -> `POST /api/connections/accept`.
+  - **Remove/Reject**: `store.removeConnection(id)` -> `POST /api/connections/remove`.
 
 ---
 
-## 5. Security Model (RLS)
+## 5. Frontend State Architecture (`store.tsx`)
 
-Row Level Security is enabled in PostgreSQL (`schema.sql`).
+The React Context acts as the "Client-Side Database Replica".
 
-- **Profiles**: Public read, Owner write.
-- **Connections**: Read/Write only if `auth.uid()` is `low_id` or `high_id`.
-- **Receipts**:
-  - Read: Sender, Recipient, or Email Match (if unassigned).
-  - Write: Sender only.
-  - Update: Involved parties.
+### 5.1 `fetchData()` Strategy
+
+Instead of fetching per-page, the store loads the user's **entire relevant world** on mount:
+
+1.  **User**: `auth.getUser()`.
+2.  **Profile**: `public_profiles` (Me).
+3.  **Graph**: `receipts` (Where I am sender OR receiver) + `connections` (Where I am involved).
+4.  **Derived Cache**: `users` array is populated by extracting all unique user IDs from the receipts/connections and doing a bulk `in` query to `public_profiles`.
+
+### 5.2 Optimistic Updates
+
+For actions like "Accept Connection", the store immediately updates the local array:
+
+```typescript
+setConnections((prev) =>
+  prev.map((c) => (c.id === id ? { ...c, accepted: true } : c))
+);
+```
+
+This ensures the UI feels instant, even while the API request processes in the background. If the API fails, the state is reverted.
+
+---
+
+## 6. Security & Permissions
+
+- **RLS** is the primary defense. Even if the Frontend code is modified, users cannot query receipts they are not part of.
+- **API Security**: The `getUser` middleware ensures `g.user` is trustworthy (signed by Supabase JWT secret). The backend logic relies on `g.user.id` for all write operations, never trusting a user ID sent in the request body for ownership assertions.

@@ -2,141 +2,111 @@
 
 ## 1. Product Vision
 
-**Pledge** is a professional network built on **verified impact** rather than self-proclaimed skills. Instead of just listing "Mentorship" on a resume, users generate cryptographic "Receipts" of the help they've given or received. These receipts build a real-time **Trust Graph**, visualizing the genuine social capital and orbit of influence around each user.
+**Pledge** is a professional network built on **verified impact**. Instead of endorsement buttons or self-proclaimed skills, Pledge users generate cryptographic "Receipts" of help given and received. These receipts form a verifiable **Trust Graph**, visualizing the genuine orbit of influence around each professional.
 
-### Core Value Proposition
+## 2. Sitemap & Screen Flows
 
-- **Show, Don't Tell**: Prove your soft skills and contributions through verified peer attestations.
-- **Visualized Influence**: See your professional network as a living, breathing orbit of trust.
-- **High-Fidelity Networking**: Connections are meaningful, based on actual interactions rather than random clicks.
+This section details the major screens and the user journey through them.
 
----
+### 2.1 Screen: Home Dashboard (The Orbit)
 
-## 2. Key Concepts & Terminology
+**Purpose**: The central command center. Visualizes the user's network as a living system.
 
-### 2.1 The Receipt (Proof)
+- **Trust Graph Canvas**:
+  - **Center**: "Me" node.
+  - **Orbiting Planets**: Connections. Size = Strength of relationship.
+  - **Edges**: Arrows indicating flow of value (Gave vs. Received). Used to spot givers vs. takers.
+- **Stats Panel (HUD)**:
+  - **Connections**: Total validated connections.
+  - **Karma/Score**: Aggregated score based on verified helps given.
+- **Action Filters**:
+  - Filter graph by "Gave Help" only or "Received Help" only.
 
-The atomic unit of value in Pledge. A Receipt is a record of a specific interaction where value was exchanged.
+### 2.2 Screen: Create Receipt (The Proof)
 
-- **Sender**: The person who _gave_ help (and usually creates the receipt).
-- **Recipient**: The person who _received_ help (and must verify the receipt).
-- **Description**: A brief narrative of what happened (e.g., "Provided code review for Project X").
-- **Tags**: Categorization (e.g., #mentorship, #referral, #debugging).
+**Purpose**: Document a specific instance of value creation.
 
-### 2.2 The Trust Graph (Orbit)
+- **Input Fields**:
+  - **Recipient Email**: The identifier for the person helped.
+  - **Description**: Narrative of the help (e.g., "Debugged production outage").
+  - **Tags**: Skills involved (e.g., #DevOps, #Mentorship).
+  - **Visibility**: Public vs. Private toggle.
+- **Logic Flow**:
+  1.  User submits form.
+  2.  **Scenario A (User exists)**: Receipt created, notification sent.
+  3.  **Scenario B (User new)**: Receipt created (Late Binding), invite email sent.
 
-The visualization of a user's network.
+### 2.3 Screen: Receipt Details & Verification
 
-- **Nodes**: Users in the network.
-  - **"You" (Center)**: The current user.
-  - **Planets**: People you have connected with. Size indicates "Strength" (frequency of interaction).
-- **Edges (Links)**: Represent the connection and flow of value.
-  - **Gave (Outbound)**: Help you provided to others.
-  - **Received (Inbound)**: Help you received from others.
+**Purpose**: The "Contract" view where value is verified.
 
-### 2.3 Connection Status
+- **Header**:
+  - **Status Indicator**:
+    - 🟢 **ACCEPTED**: Verified by recipient.
+    - 🔴 **REJECTED**: Disputed by recipient.
+    - 🟡 **PENDING**: Waiting for signup or acceptance.
+- **Content**:
+  - Description of the help.
+  - Time-stamps (Created, Verified).
+- **Actions (For Recipient)**:
+  - **Verify/Claim**: Signs the receipt, adding it to the graph.
+  - **Reject**: Marks as invalid.
+- **Actions (For Everyone)**:
+  - **Export Proof**: Generates a printable version for portfolios.
 
-- **Pending**: One-way request sent.
-- **Connected**: Two-way handshake complete. Required before receipts can be fully verified.
+### 2.4 Screen: User Profile (The Portfolio)
 
----
+**Purpose**: A public resume based on verified facts.
 
-## 3. User Personas
+- **Header**:
+  - Name, Institution, "Joined [Date]".
+  - **Context**: "Last Interaction: [Date]" (visible only to visitors).
+- **Views**:
+  - **Portfolio Mode**: Grid of verified receipts. Visual proof of work.
+  - **CV Mode**: Timeline view of contributions, suitable for PDF export.
+- **Feature: AI Highlights**:
+  - Users can click "Generate Highlights" to have AI summarize their receipt history into bullet points (e.g., "Consistently provided mentorship in Python").
 
-### 3.1 The Helper (Sender)
+### 2.5 Screen: Connections Manager
 
-- **Goal**: Wants to document their impact and quantify their leadership/mentorship skills.
-- **Action**: Creates receipts for people they help.
-- **Motivation**: Building a reputation as a generous and capable leader.
+**Purpose**: Managing the "Human Ledger".
 
-### 3.2 The Beneficiary (Recipient)
+- **Tabs**:
+  - **My Network**: List of established connections (accepted).
+  - **Requests**: Incoming invites.
+- **Add Connection Modal**:
+  - Input email to send invite.
+  - Copy "Referral Link" to share broadly.
+  - **Referral Logic**: Anyone signing up with the link is auto-connected.
 
-- **Goal**: Wants to acknowledge help received and build credit for being humble/collaborative.
-- **Action**: Accepts (verifies) receipts sent to them.
-- **Motivation**: Strengthening relationships and validating their own network usage.
+## 3. Core Mechanics
 
----
+### 3.1 The Receipt Lifecycle
 
-## 4. detailed Feature Requirements
+1.  **Draft**: Created by Sender.
+2.  **Escrow (Pending)**: Waiting for Recipient action.
+3.  **Verified (Active)**: Accepted by Recipient. Becomes a permanent node in the Trust Graph.
+4.  **Rejected**: Denied by Recipient. Hidden from public graph.
 
-### 4.1 Onboarding & Identity
+### 3.2 Late Binding (The "Magic Link")
 
-- **Sign-Up Flow**:
-  - Users sign up with Email and Password.
-  - **Profile**: Must provide First Name, Last Name, and Institution/Organization.
-  - **Referral System**: Users can sign up via a unique referral link (`?ref=USER_ID`).
-    - _Auto-Connection_: Signing up via a referral link automatically connects the new user to the referrer.
-- **Late Binding (The "Magic Link" Effect)**:
-  - If someone sent a receipt to `alice@example.com` _before_ Alice signed up, Pledge remembers.
-  - When Alice finally signs up with that email, those "orphaned" receipts are automatically recovered and linked to her account.
+- Pledge supports interacting with users _before_ they exist.
+- Receipts sent to `new@user.com` are stored in a holding state.
+- On signup, `new@user.com` inherits all pending receipts and auto-connects to the senders.
 
-### 4.2 Creating Receipts
+## 4. Design System
 
-- **User Flow**:
-  1.  User clicks "Create Proof".
-  2.  Enters Recipient Email, Description, and Tags.
-  3.  Toggles "Public/Private".
-- **System Logic**:
-  - System checks if the email matches an existing user.
-  - System checks if a connection exists.
-  - **Outcomes**:
-    - _Recipient Exists & Connected_ -> Status: `AWAITING_ACCEPTANCE`.
-    - _Recipient Exists but Not Connected_ -> Status: `AWAITING_CONNECTION`.
-    - _Recipient Doesn't Exist_ -> Status: `AWAITING_SIGNUP` (Email sent to invite them).
-
-### 4.3 Verifying & Managing Receipts
-
-- **Receipt Detail View**:
-  - Different colors enable quick status recognition:
-    - 🟢 **Green**: Verified/Accepted.
-    - 🔴 **Red**: Rejected.
-    - 🟡 **Yellow/Amber**: Pending (Signup, Connection, or Acceptance).
-  - **Export**: Users can print/export a specific receipt as a formal "Proof of Impact".
-- **Claiming (Verification)**:
-  - Recipients see a "Verify this Receipt" card.
-  - **Actions**: "Claim & Verify" or "Reject".
-  - _Implicit Connection_: Verifying a receipt automatically establishes a professional connection if one didn't exist (e.g., in Late Binding scenarios).
-
-### 4.4 Network Management (Connections)
-
-- **My Network Tab**:
-  - List of all accepted connections.
-  - Shows institution and "Member Since" date.
-  - Option to Remove Connection.
-- **Requests Tab**:
-  - Incoming connection attempts.
-  - Action: Accept or Reject.
-- **Add Connection**:
-  - **Direct Add**: Search by email.
-  - **Invite**: Generate a pre-filled email or copy a referral link.
-
-### 4.5 The Trust Graph (Home Dashboard)
-
-- **Interactive Canvas**: A physics-based force graph.
-- **Filtering**:
-  - **All**: Show full orbit.
-  - **Gave**: Highlight only people I have helped (Outbound flow).
-  - **Received**: Highlight people who helped me (Inbound flow).
-- **Stats Dashboard**:
-  - Real-time counters for Connections, Accepted Receipts, Pending Actions.
-
----
-
-## 5. User Interface (UX/UI) Guidelines
-
-- **Theme**: "Premium Zinc". Clean, minimalist, professional.
-  - **Light Mode**: Stark white surfaces, zinc accents.
-  - **Dark Mode**: Deep blue/black backgrounds (`#020617`), high-contrast text.
-- **Typography**: `Inter` font family. Clean, legible, modern.
+- **Aesthetic**: "Premium Zinc". High-contrast, clean, futuristic but professional.
+- **Typography**: `Inter`.
+- **Color Palette**:
+  - **Surface**: `#FFFFFF` / `#020617` (Dark).
+  - **Accents**: Emerald (Verified), Amber (Pending), Zinc (Neutral).
 - **Motion**:
-  - Subtle fade-ins for page loads.
-  - Smooth transitions for hover states.
-  - Physics simulations for the graph nodes (floating/drifting effect).
+  - Nodes float in orbit.
+  - Cards slide up on entry.
 
----
+## 5. Technical Constraints
 
-## 6. Future Roadmap (Out of Scope for v1)
-
-- **skills verification**: Aggregating tags to vouch for specific skills (e.g., "5 people verified Alice for #Python").
-- **Organization Accounts**: Companies verifying employee impact.
-- **Blockchain Integration**: Anchoring receipts on-chain for permanent immutability.
+- **Auth**: Supabase Auth (Email/Password).
+- **Database**: PostgreSQL with Row-Level Security (RLS).
+- **Backend**: Python (Flask) for graph logic and referrals.
