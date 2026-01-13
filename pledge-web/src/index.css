@@ -1,11 +1,25 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--surface-border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+}
+
 :root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-border: #e2e8f0;
+  --muted: #64748b;
+  --accent: #3b82f6;
+
   --color-verified: #059669;
   --color-pending: #d97706;
   --color-unclear: #64748b;
-  --color-background: #f8fafc;
-  --color-surface: #ffffff;
 
   --font-mono: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace';
   --font-sans: 'ui-sans-serif', 'system-ui', '-apple-system', "Segoe UI", 'Roboto', "Helvetica Neue", 'Arial', 'sans-serif';
@@ -14,9 +28,25 @@
   --background-image-radial-fade: radial-gradient(circle at center, rgba(255, 255, 255, 0) 0%, rgba(248, 250, 252, 1) 100%);
 }
 
+[data-theme='dark'] {
+  --background: #020617;
+  --foreground: #f1f5f9;
+  --surface: #0f172a;
+  --surface-border: #1e293b;
+  --muted: #94a3b8;
+  --accent: #60a5fa;
+
+  --color-verified: #10b981;
+  --color-pending: #fbbf24;
+  --color-unclear: #94a3b8;
+
+  --background-image-grid-pattern: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(30 41 59 / 0.4)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  --background-image-radial-fade: radial-gradient(circle at center, rgba(2, 6, 23, 0) 0%, rgba(2, 6, 23, 1) 100%);
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden selection:bg-emerald-100 selection:text-emerald-900;
+    @apply bg-[var(--background)] text-[var(--foreground)] antialiased h-screen overflow-hidden selection:bg-emerald-100 selection:text-emerald-900;
   }
 }
 

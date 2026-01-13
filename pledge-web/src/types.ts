@@ -43,6 +43,11 @@ export interface GraphNode {
     };
     lastInteraction: string;
     topTags: string[];
+    interactionStats?: {
+        sent: number;
+        received: number;
+    };
+    isMe?: boolean;
 }
 
 export interface GraphLink {
@@ -51,6 +56,8 @@ export interface GraphLink {
     verifiedCount: number;
     pendingCount: number;
     unclearCount: number;
+    sentCount: number;     // Help sent FROM source TO target
+    receivedCount: number; // Help received BY source FROM target
     strength: number;
 }
 

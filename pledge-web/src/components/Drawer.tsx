@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { X, ShieldCheck, Clock, HelpCircle, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { GraphNode, GraphLink } from '../types';
 import { ReceiptStatus } from '../types';
 import { useStore } from '../services/store';
@@ -18,6 +19,23 @@ const StatusIcon = ({ status }: { status: ReceiptStatus }) => {
     if (status === ReceiptStatus.ACCEPTED) return <ShieldCheck size={14} className="text-verified" />;
     if (status === ReceiptStatus.AWAITING_SIGNUP || status === ReceiptStatus.AWAITING_CONNECTION) return <Clock size={14} className="text-pending" />;
     return <HelpCircle size={14} className="text-slate-400" />;
+};
+
+const StatusBadge = ({ status }: { status: ReceiptStatus }) => {
+    const config = {
+        [ReceiptStatus.ACCEPTED]: { label: 'Verified', classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+        [ReceiptStatus.AWAITING_SIGNUP]: { label: 'Pending Signup', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+        [ReceiptStatus.AWAITING_CONNECTION]: { label: 'Awaiting Connection', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+        [ReceiptStatus.REJECTED]: { label: 'Rejected', classes: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
+    };
+
+    const s = config[status] || { label: status, classes: 'bg-slate-50 text-slate-600 border-slate-100' };
+
+    return (
+        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border ${s.classes}`}>
+            {s.label}
+        </span>
+    );
 };
 
 export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, data }) => {
@@ -62,19 +80,19 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, data }) => {
             />
 
             {/* Drawer Panel */}
-            <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-white shadow-2xl z-40 transform transition-transform duration-200 ease-in-out flex flex-col border-l border-slate-200">
+            <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-surface shadow-2xl z-40 transform transition-transform duration-200 ease-in-out flex flex-col border-l border-border">
 
                 {/* Header */}
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="p-4 border-b border-border flex justify-between items-center bg-background/50">
                     <div>
-                        <h2 className="font-bold text-lg text-slate-900">{title}</h2>
-                        <p className="text-xs text-slate-500 font-mono">
+                        <h2 className="font-bold text-lg text-foreground">{title}</h2>
+                        <p className="text-xs text-muted font-mono">
                             {data.type === 'NODE' ? `ID: ${data.node?.id} ` : 'Interactions'}
                         </p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+                        className="p-2 hover:bg-border rounded-full transition-colors text-muted"
                     >
                         <X size={20} />
                     </button>
@@ -85,41 +103,41 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, data }) => {
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center">
+                        <div className="bg-background p-3 rounded-lg border border-border text-center">
                             <div className="text-xl font-bold text-verified">
                                 {relevantReceipts.filter(r => r.status === ReceiptStatus.ACCEPTED).length}
                             </div>
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Accepted</div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted">Accepted</div>
                         </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center">
+                        <div className="bg-background p-3 rounded-lg border border-border text-center">
                             <div className="text-xl font-bold text-pending">
                                 {relevantReceipts.filter(r => r.status === ReceiptStatus.AWAITING_SIGNUP || r.status === ReceiptStatus.AWAITING_CONNECTION).length}
                             </div>
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Pending</div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted">Pending</div>
                         </div>
                     </div>
 
                     {/* Tag Cloud */}
                     {data.type === 'NODE' && data.node && (
                         <div>
-                            <h3 className="text-xs font-bold uppercase text-slate-400 mb-2">Top Contexts</h3>
+                            <h3 className="text-xs font-bold uppercase text-muted mb-2 opacity-60">Top Contexts</h3>
                             <div className="flex flex-wrap gap-2">
                                 {data.node.topTags.map(tag => (
-                                    <span key={tag} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded border border-slate-200 font-medium">
+                                    <span key={tag} className="px-2 py-1 bg-surface text-foreground text-xs rounded border border-border font-medium">
                                         {tag}
                                     </span>
                                 ))}
-                                {data.node.topTags.length === 0 && <span className="text-xs text-slate-400 italic">No tags yet</span>}
+                                {data.node.topTags.length === 0 && <span className="text-xs text-muted italic">No tags yet</span>}
                             </div>
                         </div>
                     )}
 
                     {/* Receipt List */}
                     <div>
-                        <h3 className="text-xs font-bold uppercase text-slate-400 mb-2">History</h3>
+                        <h3 className="text-xs font-bold uppercase text-muted/60 mb-2">History</h3>
                         <div className="space-y-2">
                             {relevantReceipts.length === 0 && (
-                                <div className="p-4 text-center text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                <div className="p-4 text-center text-muted text-sm bg-background rounded-lg border border-dashed border-border text-opacity-60">
                                     No history found.
                                 </div>
                             )}
@@ -129,31 +147,52 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, data }) => {
                                 const otherUser = users.find(u => u.id === otherId || u.email === otherId);
 
                                 return (
-                                    <div key={r.id} className="p-3 bg-white border border-slate-100 rounded-lg hover:border-slate-300 transition-colors shadow-sm group">
+                                    <Link
+                                        key={r.id}
+                                        to={`/receipt/${r.id}`}
+                                        className="block p-3 bg-surface border border-border rounded-lg hover:border-accent hover:shadow-md transition-all group"
+                                    >
                                         <div className="flex justify-between items-start mb-1">
                                             <div className="flex items-center space-x-2">
                                                 <StatusIcon status={r.status} />
-                                                <span className="text-xs font-semibold text-slate-700">
-                                                    {isIncoming ? 'Received help from' : 'Helped'} {otherUser?.maskedName} {otherUser?.institution && <span className="opacity-60 text-[10px] font-normal">({otherUser.institution})</span>}
+                                                <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors">
+                                                    {isIncoming ? 'Received help from' : 'Helped'} {otherUser?.maskedName}
                                                 </span>
                                             </div>
-                                            <span className="text-[10px] text-slate-400 font-mono">
-                                                {new Date(r.created_at).toLocaleDateString()}
-                                            </span>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className="text-[10px] text-muted font-mono opacity-60">
+                                                    {new Date(r.created_at).toLocaleDateString()}
+                                                </span>
+                                                <StatusBadge status={r.status} />
+                                            </div>
                                         </div>
+
+                                        <div className="text-[11px] text-muted line-clamp-1 mt-1 font-medium group-hover:text-foreground transition-colors">
+                                            {r.description || 'No description provided.'}
+                                        </div>
+
                                         <div className="flex flex-wrap gap-1 mt-2">
                                             {r.tags.map(t => (
-                                                <span key={t} className="text-[10px] px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-100">#{t}</span>
+                                                <span key={t} className="text-[10px] px-1.5 py-0.5 bg-background text-muted rounded border border-border">#{t}</span>
                                             ))}
                                         </div>
                                         {(r.status === ReceiptStatus.AWAITING_SIGNUP || r.status === ReceiptStatus.AWAITING_CONNECTION) && !isIncoming && (
-                                            <div className="mt-2 pt-2 border-t border-slate-50 flex justify-end">
-                                                <button className="text-xs text-blue-600 font-medium hover:underline flex items-center">
-                                                    Copy Reminder <ArrowRight size={10} className="ml-1" />
+                                            <div className="mt-2 pt-2 border-t border-border flex justify-end">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        // Fallback logic for reminder
+                                                        const url = `${window.location.origin}/claim?id=${r.id}`;
+                                                        navigator.clipboard.writeText(`Hey! Please help me verify our collaboration on Pledge: ${url}`);
+                                                    }}
+                                                    className="text-xs text-blue-600 font-medium hover:underline flex items-center"
+                                                >
+                                                    Copy Link <ArrowRight size={10} className="ml-1" />
                                                 </button>
                                             </div>
                                         )}
-                                    </div>
+                                    </Link>
                                 );
                             })}
                         </div>
@@ -162,10 +201,10 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, data }) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50">
+                <div className="p-4 border-t border-border bg-background">
                     <button
                         onClick={onClose}
-                        className="w-full py-2 bg-white border border-slate-300 rounded text-sm font-medium hover:bg-slate-100 transition-colors"
+                        className="w-full py-2 bg-surface border border-border rounded text-sm font-medium hover:bg-background transition-colors text-foreground"
                     >
                         Close Panel
                     </button>

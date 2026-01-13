@@ -106,18 +106,18 @@ export function CreateReceiptPage() {
         return (
             <Layout>
                 <div className="max-w-md mx-auto h-full flex items-center justify-center animate-slide-up">
-                    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl text-center space-y-6 w-full">
-                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <div className="bg-surface p-8 rounded-[2rem] border border-border shadow-xl text-center space-y-6 w-full">
+                        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
                             <CheckCircle2 size={32} />
                         </div>
                         <div className="space-y-2">
-                            <h2 className="text-2xl font-bold text-slate-900">Receipt Created</h2>
-                            <p className="text-slate-500 text-sm">Send this link to {formData.recipientEmail} to get it verified.</p>
+                            <h2 className="text-2xl font-bold text-foreground">Receipt Created</h2>
+                            <p className="text-muted text-sm">Send this link to {formData.recipientEmail} to get it verified.</p>
                         </div>
 
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300 flex items-center gap-3">
-                            <code className="flex-1 text-xs text-slate-500 truncate text-left font-mono">{generatedLink}</code>
-                            <button onClick={copyLink} className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm text-slate-600">
+                        <div className="p-4 bg-background rounded-2xl border border-dashed border-border flex items-center gap-3">
+                            <code className="flex-1 text-xs text-muted truncate text-left font-mono">{generatedLink}</code>
+                            <button onClick={copyLink} className="p-2 hover:bg-surface rounded-lg transition-colors shadow-sm text-muted hover:text-foreground">
                                 <Copy size={16} />
                             </button>
                         </div>
@@ -131,7 +131,7 @@ export function CreateReceiptPage() {
                         </button>
 
                         <div className="pt-2">
-                            <Link to="/receipts" className="text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors">
+                            <Link to="/receipts" className="text-sm font-bold text-muted hover:text-foreground transition-colors">
                                 Back to dashboard
                             </Link>
                         </div>
@@ -145,16 +145,16 @@ export function CreateReceiptPage() {
         <Layout>
             <div className="max-w-lg mx-auto py-6 animate-slide-up">
                 <div className="mb-8 space-y-2 text-center md:text-left">
-                    <h1 className="text-3xl font-bold text-slate-900">Create Proof</h1>
-                    <p className="text-slate-500 font-medium">Document the help you provided to someone.</p>
+                    <h1 className="text-3xl font-bold text-foreground">Create Proof</h1>
+                    <p className="text-muted font-medium">Document the help you provided to someone.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl shadow-slate-900/5 border border-slate-200 space-y-6">
-                    <div className="flex bg-slate-100 p-1 rounded-2xl">
+                <form onSubmit={handleSubmit} className="bg-surface p-6 md:p-8 rounded-[2.5rem] shadow-xl shadow-slate-900/5 border border-border space-y-6">
+                    <div className="flex bg-background p-1 rounded-2xl">
                         <button
                             type="button"
                             onClick={() => setRecipientType('email')}
-                            className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${recipientType === 'email' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${recipientType === 'email' ? 'bg-surface text-foreground shadow-sm' : 'text-muted hover:text-foreground'}`}
                         >
                             <AtSign size={14} />
                             <span>Email</span>
@@ -162,7 +162,7 @@ export function CreateReceiptPage() {
                         <button
                             type="button"
                             onClick={() => setRecipientType('network')}
-                            className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${recipientType === 'network' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${recipientType === 'network' ? 'bg-surface text-foreground shadow-sm' : 'text-muted hover:text-foreground'}`}
                         >
                             <Users size={14} />
                             <span>Network</span>
@@ -171,26 +171,26 @@ export function CreateReceiptPage() {
 
                     {recipientType === 'email' ? (
                         <div className="space-y-2 animate-fade-in">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Recipient Email</label>
+                            <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">Recipient Email</label>
                             <input
                                 required
                                 type="email"
                                 name="recipientEmail"
                                 value={formData.recipientEmail}
                                 onChange={handleChange}
-                                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400"
+                                className="w-full p-4 bg-background border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all text-sm font-medium text-foreground placeholder:text-muted/40"
                                 placeholder="who did you help?"
                             />
                         </div>
                     ) : (
                         <div className="space-y-4 animate-fade-in">
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
                                 <input
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400"
+                                    className="w-full pl-12 pr-4 py-4 bg-background border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all text-sm font-medium text-foreground placeholder:text-muted/40"
                                     placeholder="Search your network..."
                                 />
                             </div>
@@ -205,15 +205,15 @@ export function CreateReceiptPage() {
                                             key={contact.id}
                                             type="button"
                                             onClick={() => handleSelectContact(contact.email)}
-                                            className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all ${formData.recipientEmail === contact.email ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-100 text-slate-900 hover:border-slate-300'}`}
+                                            className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all ${formData.recipientEmail === contact.email ? 'bg-slate-900 border-slate-900 dark:bg-white dark:border-white text-white dark:text-slate-900' : 'bg-background border-border text-foreground hover:border-accent/50'}`}
                                         >
                                             <div className="flex items-center space-x-3 text-left">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${formData.recipientEmail === contact.email ? 'bg-white/20 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${formData.recipientEmail === contact.email ? 'bg-white/20 dark:bg-slate-900/20 text-white dark:text-slate-900' : 'bg-surface border border-border text-muted'}`}>
                                                     {contact.maskedName.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div>
                                                     <div className="text-xs font-bold">{contact.maskedName}</div>
-                                                    <div className={`text-[10px] ${formData.recipientEmail === contact.email ? 'text-white/60' : 'text-slate-500'}`}>{contact.institution}</div>
+                                                    <div className={`text-[10px] ${formData.recipientEmail === contact.email ? 'text-white/60 dark:text-slate-900/60' : 'text-muted'}`}>{contact.institution}</div>
                                                 </div>
                                             </div>
                                             {formData.recipientEmail === contact.email && <CheckCircle2 size={16} />}
@@ -225,46 +225,46 @@ export function CreateReceiptPage() {
                     )}
 
                     <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Context Tags</label>
+                        <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">Context Tags</label>
                         <input
                             name="tags"
                             value={formData.tags}
                             onChange={handleChange}
-                            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400"
+                            className="w-full p-4 bg-background border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all text-sm font-medium text-foreground placeholder:text-muted/40"
                             placeholder="design, advice, dev... (comma separated)"
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">What happened?</label>
+                        <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">What happened?</label>
                         <textarea
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
                             rows={3}
-                            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 resize-none"
+                            className="w-full p-4 bg-background border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent/10 transition-all text-sm font-medium text-foreground placeholder:text-muted/40 resize-none"
                             placeholder="Briefly describe the favor..."
                         />
                     </div>
 
-                    <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center space-x-3 p-4 bg-background rounded-2xl border border-border">
                         <input
                             type="checkbox"
                             id="isPublic"
                             name="isPublic"
                             checked={formData.isPublic}
                             onChange={handleChange}
-                            className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                            className="w-5 h-5 rounded border-border bg-surface text-accent focus:ring-accent"
                         />
-                        <label htmlFor="isPublic" className="text-xs font-bold text-slate-600 cursor-pointer">Make this proof public on my portfolio</label>
+                        <label htmlFor="isPublic" className="text-xs font-bold text-muted cursor-pointer">Make this proof public on my portfolio</label>
                     </div>
 
-                    {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-xs font-bold flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>{error}</div>}
+                    {error && <div className="p-4 bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl text-xs font-bold flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>{error}</div>}
 
                     <button
                         disabled={loading}
                         type="submit"
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
+                        className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold hover:bg-slate-800 dark:hover:bg-slate-100 disabled:opacity-50 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
                     >
                         {loading ? 'Creating Proof...' : 'Generate Verification Link'}
                     </button>

@@ -95,7 +95,7 @@ export const SettingsPage: React.FC = () => {
     if (loading) {
         return (
             <Layout>
-                <div className="flex items-center justify-center h-full text-slate-400">Loading settings...</div>
+                <div className="flex items-center justify-center h-full text-muted font-bold animate-pulse">Loading settings...</div>
             </Layout>
         );
     }
@@ -104,28 +104,28 @@ export const SettingsPage: React.FC = () => {
         <Layout>
             <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-20">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-                    <p className="text-slate-500 font-medium">Manage your personal profile and preferences.</p>
+                    <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+                    <p className="text-muted font-medium">Manage your personal profile and preferences.</p>
                 </div>
 
-                <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-xl shadow-slate-900/5 p-8">
-                    <h2 className="text-xl font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4">Profile Information</h2>
+                <div className="bg-surface rounded-[1.5rem] border border-border shadow-xl shadow-slate-900/5 p-8">
+                    <h2 className="text-xl font-bold text-foreground mb-6 border-b border-border pb-4">Profile Information</h2>
 
                     <form onSubmit={onSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <label className="block">
-                                <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 ml-1">First name</div>
+                                <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">First name</div>
                                 <input
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 outline-none transition-all font-medium text-slate-800"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:ring-4 focus:ring-accent/5 focus:border-accent outline-none transition-all font-medium text-foreground placeholder:text-muted/40"
                                     value={form.first_name}
                                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                                 />
                             </label>
 
                             <label className="block">
-                                <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 ml-1">Last name</div>
+                                <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Last name</div>
                                 <input
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 outline-none transition-all font-medium text-slate-800"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:ring-4 focus:ring-accent/5 focus:border-accent outline-none transition-all font-medium text-foreground placeholder:text-muted/40"
                                     value={form.last_name}
                                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                                 />
@@ -133,9 +133,9 @@ export const SettingsPage: React.FC = () => {
                         </div>
 
                         <label className="block">
-                            <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 ml-1">Phone</div>
+                            <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Phone</div>
                             <input
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 outline-none transition-all font-medium text-slate-800"
+                                className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:ring-4 focus:ring-accent/5 focus:border-accent outline-none transition-all font-medium text-foreground placeholder:text-muted/40"
                                 placeholder="+92XXXXXXXXXX"
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -143,9 +143,9 @@ export const SettingsPage: React.FC = () => {
                         </label>
 
                         <label className="block">
-                            <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 ml-1">Date of birth</div>
+                            <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Date of birth</div>
                             <input
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 outline-none transition-all font-medium text-slate-800"
+                                className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:ring-4 focus:ring-accent/5 focus:border-accent outline-none transition-all font-medium text-foreground"
                                 type="date"
                                 value={form.date_of_birth}
                                 onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
@@ -153,10 +153,10 @@ export const SettingsPage: React.FC = () => {
                         </label>
 
                         <label className="block">
-                            <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 ml-1">Institution</div>
+                            <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 ml-1">Institution</div>
                             <div className="relative">
                                 <select
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 outline-none transition-all font-medium text-slate-800 appearance-none"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:ring-4 focus:ring-accent/5 focus:border-accent outline-none transition-all font-medium text-foreground appearance-none"
                                     value={form.institution}
                                     onChange={(e) => setForm({ ...form, institution: e.target.value })}
                                 >
@@ -165,14 +165,14 @@ export const SettingsPage: React.FC = () => {
                                         <option key={x} value={x}>{x}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
                                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                 </div>
                             </div>
                         </label>
 
                         {message && (
-                            <div className={`p-4 rounded-xl text-sm font-bold flex items-center gap-3 ${message.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                            <div className={`p-4 rounded-xl text-sm font-bold flex items-center gap-3 ${message.type === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}`}>
                                 {message.type === 'error' ? (
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                 ) : (
@@ -185,7 +185,7 @@ export const SettingsPage: React.FC = () => {
                         <div className="pt-4 flex justify-end">
                             <button
                                 disabled={saving}
-                                className="px-8 py-3 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="px-8 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-slate-800 dark:hover:bg-slate-100 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 {saving ? 'Saving Changes...' : 'Save Changes'}
                             </button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { Layout } from '../../app/Layout';
@@ -86,7 +86,7 @@ export const UserProfilePage: React.FC = () => {
 
     if (loading) return (
         <Layout>
-            <div className="flex items-center justify-center p-8 text-slate-400 font-bold animate-pulse">Building profile...</div>
+            <div className="flex items-center justify-center p-8 text-muted font-bold animate-pulse">Building profile...</div>
         </Layout>
     );
 
@@ -108,31 +108,31 @@ export const UserProfilePage: React.FC = () => {
                 {/* Elegant Header */}
                 <header className="flex flex-col items-center text-center space-y-6">
                     <div className="relative group">
-                        <div className="w-24 h-24 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center text-4xl font-bold shadow-2xl transition-transform group-hover:scale-105 group-hover:rotate-3">
+                        <div className="w-24 h-24 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[2rem] flex items-center justify-center text-4xl font-bold shadow-2xl transition-transform group-hover:scale-105 group-hover:rotate-3">
                             {userId?.substring(0, 1).toUpperCase()}
                         </div>
-                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-white">
+                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-surface">
                             <Award size={16} />
                         </div>
                     </div>
 
                     <div className="space-y-1">
-                        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Trust Portfolio</h1>
-                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Verified Digital Reputation • {userId?.split('-')[0]}</p>
+                        <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Trust Portfolio</h1>
+                        <p className="text-muted font-bold text-xs uppercase tracking-widest">Verified Digital Reputation • {userId?.split('-')[0]}</p>
                     </div>
 
                     {/* View Switcher */}
-                    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-fit">
+                    <div className="flex bg-background p-1 rounded-2xl border border-border w-fit">
                         <button
                             onClick={() => setViewMode('PORTFOLIO')}
-                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'PORTFOLIO' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'PORTFOLIO' ? 'bg-surface text-foreground shadow-md' : 'text-muted hover:text-foreground'}`}
                         >
                             <LayoutGrid size={14} />
                             <span>Portfolio</span>
                         </button>
                         <button
                             onClick={() => setViewMode('CV')}
-                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'CV' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-900'}`}
+                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'CV' ? 'bg-surface text-foreground shadow-md' : 'text-muted hover:text-foreground'}`}
                         >
                             <FileText size={14} />
                             <span>Resume / CV</span>
@@ -144,19 +144,19 @@ export const UserProfilePage: React.FC = () => {
                     <>
                         {/* Impact Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="glass-card p-8 rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-900/5 text-center space-y-2">
-                                <div className="text-4xl font-black text-slate-900">{receivedCount}</div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verified Proofs</div>
+                            <div className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-xl shadow-slate-900/5 text-center space-y-2">
+                                <div className="text-4xl font-black text-foreground">{receivedCount}</div>
+                                <div className="text-[10px] font-bold text-muted uppercase tracking-widest">Verified Proofs</div>
                             </div>
 
-                            <div className="md:col-span-2 glass-card p-8 rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-900/5">
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Core Capabilities</h3>
+                            <div className="md:col-span-2 bg-surface p-8 rounded-[2.5rem] border border-border shadow-xl shadow-slate-900/5">
+                                <h3 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">Core Capabilities</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {topTags.length > 0 ? topTags.map(tag => (
-                                        <span key={tag} className="px-5 py-2.5 bg-slate-100 text-slate-900 border border-slate-200 rounded-2xl text-xs font-bold hover:bg-slate-900 hover:text-white transition-colors cursor-default">
+                                        <span key={tag} className="px-5 py-2.5 bg-background text-foreground border border-border rounded-2xl text-xs font-bold hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900 transition-colors cursor-default">
                                             {tag}
                                         </span>
-                                    )) : <span className="text-xs text-slate-400 italic">No public skills listed yet.</span>}
+                                    )) : <span className="text-xs text-muted italic">No public skills listed yet.</span>}
                                 </div>
                             </div>
                         </div>
@@ -164,33 +164,33 @@ export const UserProfilePage: React.FC = () => {
                         {/* Proof Feed */}
                         <div className="space-y-6">
                             <div className="flex items-center space-x-4">
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Verification Wall</h3>
-                                <div className="h-px bg-slate-100 flex-1" />
+                                <h3 className="text-[10px] font-bold text-muted uppercase tracking-widest whitespace-nowrap">Verification Wall</h3>
+                                <div className="h-px bg-border flex-1" />
                             </div>
 
                             {rows.length === 0 ? (
-                                <div className="bg-slate-50/50 p-12 rounded-[2.5rem] text-center border-2 border-dashed border-slate-200">
-                                    <p className="text-slate-400 font-medium italic">This user hasn't made any impact proofs public yet.</p>
+                                <div className="bg-background p-12 rounded-[2.5rem] text-center border-2 border-dashed border-border">
+                                    <p className="text-muted font-medium italic">This user hasn't made any impact proofs public yet.</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {rows.map(r => (
-                                        <div key={r.id} className="glass-card p-6 rounded-[2rem] border border-slate-200/60 shadow-lg shadow-slate-900/5 group hover:-translate-y-1 transition-all">
+                                        <div key={r.id} className="bg-surface p-6 rounded-[2rem] border border-border shadow-lg shadow-slate-900/5 group hover:-translate-y-1 transition-all">
                                             <div className="flex items-start gap-4">
-                                                <div className="w-10 h-10 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center shrink-0 border border-emerald-100">
+                                                <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center shrink-0 border border-emerald-500/20">
                                                     <CheckCircle2 size={18} />
                                                 </div>
                                                 <div className="space-y-3 flex-1">
-                                                    <div className="text-sm font-bold text-slate-800 leading-relaxed min-h-[3rem]">
+                                                    <div className="text-sm font-bold text-foreground leading-relaxed min-h-[3rem]">
                                                         {r.description || "Interaction verified by recipient."}
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex gap-1.5 overflow-hidden">
                                                             {r.tags?.slice(0, 3).map(t => (
-                                                                <span key={t} className="text-[8px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase tracking-wider">#{t}</span>
+                                                                <span key={t} className="text-[8px] font-bold text-muted bg-background px-2 py-1 rounded-lg uppercase tracking-wider">#{t}</span>
                                                             ))}
                                                         </div>
-                                                        <span className="text-[9px] font-bold text-slate-300 uppercase shrink-0">{new Date(r.created_at).toLocaleDateString()}</span>
+                                                        <span className="text-[9px] font-bold text-muted/30 uppercase shrink-0">{new Date(r.created_at).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -203,21 +203,21 @@ export const UserProfilePage: React.FC = () => {
                 ) : (
                     /* CV MODE */
                     <div className="space-y-10 animate-slide-up">
-                        <section className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 space-y-8 relative overflow-hidden">
+                        <section className="bg-surface rounded-[2.5rem] border border-border shadow-2xl p-10 space-y-8 relative overflow-hidden">
                             {/* Decorative dot grid */}
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 [mask-image:radial-gradient(white,transparent)] flex flex-wrap gap-2 p-4 opacity-50">
-                                {[...Array(16)].map((_, i) => <div key={i} className="w-1 h-1 bg-slate-200 rounded-full" />)}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-background/50 [mask-image:radial-gradient(white,transparent)] flex flex-wrap gap-2 p-4 opacity-50">
+                                {[...Array(16)].map((_, i) => <div key={i} className="w-1 h-1 bg-border rounded-full" />)}
                             </div>
 
-                            <div className="flex justify-between items-start border-b border-slate-100 pb-8">
+                            <div className="flex justify-between items-start border-b border-border pb-8">
                                 <div className="space-y-2">
-                                    <h2 className="text-3xl font-black text-slate-900">Experience Highlights</h2>
-                                    <p className="text-slate-500 font-medium max-w-md italic">AI-generated professional statements backed by verified peer-to-peer data.</p>
+                                    <h2 className="text-3xl font-black text-foreground">Experience Highlights</h2>
+                                    <p className="text-muted font-medium max-w-md italic">AI-generated professional statements backed by verified peer-to-peer data.</p>
                                 </div>
                                 <button
                                     onClick={handleGenerateAICV}
                                     disabled={isGeneratingAI}
-                                    className="flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                    className="flex items-center space-x-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-xs shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                                 >
                                     {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                     <span>{Object.keys(aiStatements).length > 0 ? 'Regenerate Highlights' : 'Generate AI Highlights'}</span>
@@ -244,16 +244,16 @@ export const UserProfilePage: React.FC = () => {
 
                                             <div className="space-y-2">
                                                 {aiStatements[r.id] ? (
-                                                    <p className="text-lg font-bold text-slate-800 leading-tight">
+                                                    <p className="text-lg font-bold text-foreground leading-tight">
                                                         {aiStatements[r.id]}
                                                     </p>
                                                 ) : (
-                                                    <p className="text-lg font-bold text-slate-400 italic">
+                                                    <p className="text-lg font-bold text-muted italic">
                                                         {r.description}
                                                         <span className="block text-[10px] uppercase mt-1 not-italic opacity-60">Click 'Generate AI Highlights' to polish this point</span>
                                                     </p>
                                                 )}
-                                                <div className="flex items-center space-x-1.5 text-slate-400 font-bold text-[10px] uppercase italic">
+                                                <div className="flex items-center space-x-1.5 text-muted font-bold text-[10px] uppercase italic">
                                                     <CheckCircle2 size={12} className="text-emerald-500" />
                                                     <span>Verified Interaction Log • ID: {r.id.substring(0, 8)}</span>
                                                 </div>
@@ -269,38 +269,38 @@ export const UserProfilePage: React.FC = () => {
                 {/* Floating Owner Action Bar */}
                 {isOwner && (
                     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce-in">
-                        <div className="bg-slate-900/90 backdrop-blur-xl p-2 rounded-[2rem] border border-white/10 shadow-2xl flex items-center space-x-2">
+                        <div className="bg-slate-900/90 dark:bg-white/90 backdrop-blur-xl p-2 rounded-[2rem] border border-white/10 dark:border-slate-900/10 shadow-2xl flex items-center space-x-2">
                             <button
                                 onClick={() => setViewMode(viewMode === 'PORTFOLIO' ? 'CV' : 'PORTFOLIO')}
-                                className="flex items-center space-x-2 px-5 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all"
+                                className="flex items-center space-x-2 px-5 py-3 bg-white/10 dark:bg-slate-900/10 hover:bg-white/20 dark:hover:bg-slate-900/20 text-white dark:text-slate-900 rounded-2xl transition-all"
                             >
                                 {viewMode === 'PORTFOLIO' ? <FileText size={18} /> : <LayoutGrid size={18} />}
                                 <span className="text-xs font-bold">Switch to {viewMode === 'PORTFOLIO' ? 'CV View' : 'Portfolio'}</span>
                             </button>
 
-                            <div className="w-px h-8 bg-white/10 mx-2" />
+                            <div className="w-px h-8 bg-white/10 dark:bg-slate-900/10 mx-2" />
 
                             <button
                                 onClick={handleExportCSV}
-                                className="p-3 text-white hover:bg-white/10 rounded-2xl transition-all relative group"
+                                className="p-3 text-white dark:text-slate-900 hover:bg-white/10 dark:hover:bg-slate-900/10 rounded-2xl transition-all relative group"
                             >
                                 <Download size={20} />
-                                <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold">Export CSV</span>
+                                <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold">Export CSV</span>
                             </button>
 
                             <button
                                 onClick={handleCopyLink}
-                                className="p-3 text-white hover:bg-white/10 rounded-2xl transition-all relative group"
+                                className="p-3 text-white dark:text-slate-900 hover:bg-white/10 dark:hover:bg-slate-900/10 rounded-2xl transition-all relative group"
                             >
                                 <Share2 size={20} />
-                                <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold">Copy Portfolio Link</span>
+                                <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold">Copy Portfolio Link</span>
                             </button>
                         </div>
                     </div>
                 )}
 
-                <footer className="text-center pt-8 border-t border-slate-100">
-                    <Link to="/" className="inline-flex items-center space-x-2 text-slate-300 hover:text-slate-900 transition-colors">
+                <footer className="text-center pt-8 border-t border-border">
+                    <Link to="/" className="inline-flex items-center space-x-2 text-muted hover:text-foreground transition-colors">
                         <div className="w-4 h-4 rounded-full border border-current flex items-center justify-center scale-75">
                             <div className="w-1 h-1 bg-current rounded-full" />
                         </div>

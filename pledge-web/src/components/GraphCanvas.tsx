@@ -6,289 +6,272 @@ interface GraphCanvasProps {
     data: GraphPayload;
     onNodeClick: (node: GraphNode) => void;
     onEdgeClick: (link: GraphLink) => void;
-    width?: number;
-    height?: number;
+    filter?: 'ALL' | 'GAVE' | 'RECEIVED';
 }
 
-export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick }: GraphCanvasProps) => {
+/**
+ * GraphCanvas Reconstruction
+ * Focus: Stability, Performance, Zero-Jitter
+ */
+export const GraphCanvas = React.memo(({ data, onNodeClick, onEdgeClick, filter = 'ALL' }: GraphCanvasProps) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-    // Store simulation and precise node state to prevent jumpiness on re-renders
+    // Permanent references to prevent physics resets
     const simulationRef = useRef<d3.Simulation<any, undefined> | null>(null);
-    const oldNodesMap = useRef<Map<string, any>>(new Map());
+    const nodesRef = useRef<Map<string, any>>(new Map());
+    const gRef = useRef<SVGGElement | null>(null);
 
-    // Handle Resize
+    // Initial Setup & Resize
     useEffect(() => {
         if (!wrapperRef.current) return;
-        const resizeObserver = new ResizeObserver((entries) => {
-            if (!entries || entries.length === 0) return;
+        const observer = new ResizeObserver(entries => {
             const { width, height } = entries[0].contentRect;
             setDimensions({ width, height });
         });
-        resizeObserver.observe(wrapperRef.current);
-        return () => resizeObserver.disconnect();
+        observer.observe(wrapperRef.current);
+        return () => observer.disconnect();
     }, []);
 
-    // Main D3 Rendering Logic
+    // One-time SVG Layer Setup
     useEffect(() => {
-        if (!svgRef.current || dimensions.width === 0 || dimensions.height === 0) return;
-
-        const { width, height } = dimensions;
+        if (!svgRef.current || dimensions.width === 0) return;
         const svg = d3.select(svgRef.current);
 
-        // One-time setup for layers
-        let g = svg.select<SVGGElement>("g.main-group");
-        if (g.empty()) {
-            g = svg.append("g").attr("class", "main-group");
+        if (!gRef.current) {
+            const g = svg.append("g").attr("class", "main-group");
+            gRef.current = g.node();
 
-            // Zoom behavior
-            const zoom = d3.zoom<SVGSVGElement, unknown>()
-                .scaleExtent([0.2, 4])
-                .on("zoom", (event) => {
-                    g.attr("transform", event.transform);
-                });
-            svg.call(zoom);
+            // Zoom support
+            svg.call(d3.zoom<SVGSVGElement, unknown>()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => g.attr("transform", event.transform)));
 
-            // Defs (Shadows/Gradients)
+            // Layers
+            g.append("g").attr("class", "links-layer");
+            g.append("g").attr("class", "nodes-layer");
+
+            // Global Shadows
             const defs = svg.append("defs");
-            const filter = defs.append("filter").attr("id", "drop-shadow").attr("height", "150%");
-            filter.append("feGaussianBlur").attr("in", "SourceAlpha").attr("stdDeviation", 3).attr("result", "blur");
-            filter.append("feOffset").attr("in", "blur").attr("dx", 0).attr("dy", 3).attr("result", "offsetBlur");
-            filter.append("feFlood").attr("flood-color", "rgba(0,0,0,0.15)").attr("result", "color");
-            filter.append("feComposite").attr("in2", "offsetBlur").attr("operator", "in").attr("in", "color").attr("result", "shadow");
-            const feMerge = filter.append("feMerge");
-            feMerge.append("feMergeNode").attr("in", "shadow");
+            const dropShadow = defs.append("filter").attr("id", "drop-shadow").attr("height", "130%");
+            dropShadow.append("feGaussianBlur").attr("in", "SourceAlpha").attr("stdDeviation", 3);
+            dropShadow.append("feOffset").attr("dx", 0).attr("dy", 2).attr("result", "offsetblur");
+            dropShadow.append("feComponentTransfer").append("feFuncA").attr("type", "linear").attr("slope", 0.2);
+            const feMerge = dropShadow.append("feMerge");
+            feMerge.append("feMergeNode");
             feMerge.append("feMergeNode").attr("in", "SourceGraphic");
-
-            g.append("g").attr("class", "links");
-            g.append("g").attr("class", "nodes");
         }
+    }, [dimensions.width]);
 
-        // --- Data Preparation (Preserve Physics State) ---
-        // We map new data to old objects if they exist to keep x,y,vx,vy properties
-        const mutableNodes = data.nodes.map(d => {
-            const old = oldNodesMap.current.get(d.id);
-            if (old) {
-                // Copy physics state from old node
-                return Object.assign(Object.create(old), d, {
-                    x: old.x, y: old.y, vx: old.vx, vy: old.vy
-                });
+    // Handle Data & Simulation
+    useEffect(() => {
+        if (!svgRef.current || dimensions.width === 0) return;
+        const { width, height } = dimensions;
+
+        // 1. Data Preservation (Physics Persistence)
+        const currentNodes: any[] = data.nodes.map(d => {
+            const existing = nodesRef.current.get(d.id);
+            if (existing) {
+                // Update properties but keep physics state
+                return Object.assign(existing, d);
             }
-            // New node spawns near center
-            return { ...d, x: width / 2 + (Math.random() - 0.5) * 50, y: height / 2 + (Math.random() - 0.5) * 50 };
-        }) as (GraphNode & d3.SimulationNodeDatum)[];
-
-        // Update map for next render
-        oldNodesMap.current.clear();
-        mutableNodes.forEach(n => oldNodesMap.current.set(n.id, n));
-
-        const mutableLinks = data.links.map(d => ({ ...d }));
-
-        // --- Simulation Setup/Update ---
-        if (!simulationRef.current) {
-            simulationRef.current = d3.forceSimulation()
-                .force("charge", d3.forceManyBody().strength(-400))
-                .force("center", d3.forceCenter(width / 2, height / 2))
-                .force("collide", d3.forceCollide().radius(45).strength(0.7));
-        }
-
-        const simulation = simulationRef.current;
-
-        // Update forces
-        simulation.nodes(mutableNodes);
-
-        // We need to re-initialize the link force every time because the link structure changes completely
-        simulation.force("link", d3.forceLink(mutableLinks)
-            .id((d: any) => d.id)
-            .distance(120) // Slightly tighter
-            .strength(0.5) // Allow some flexibility
-        );
-
-        // Heat up simulation slightly to allow drift to new positions
-        simulation.alpha(0.5).restart();
-
-
-        // --- Rendering with Transitions (Enter/Update/Exit) ---
-
-        // 1. LINKS
-        const linkGroup = g.select(".links");
-        const link = linkGroup.selectAll<SVGLineElement, any>("line")
-            .data(mutableLinks, (d) => d.source.id + "-" + d.target.id); // Unique key
-
-        link.exit()
-            .transition().duration(300)
-            .attr("opacity", 0)
-            .remove();
-
-        const linkEnter = link.enter().append("line")
-            .attr("stroke-width", 0)
-            .attr("opacity", 0)
-            .attr("stroke-linecap", "round");
-
-        const linkMerge = linkEnter.merge(link)
-            .attr("cursor", "pointer")
-            .on("click", (event, d) => {
-                event.stopPropagation();
-                onEdgeClick(d as unknown as GraphLink);
-            });
-
-        linkMerge.transition().duration(500)
-            .attr("opacity", 0.6)
-            .attr("stroke", (d) => {
-                if (d.verifiedCount > 0) return "#94a3b8"; // slate-400
-                if (d.pendingCount > 0) return "#fbbf24"; // amber-400
-                return "#e2e8f0"; // slate-200
-            })
-            .attr("stroke-width", d => Math.max(2, Math.min(6, d.verifiedCount + 1)))
-            .attr("stroke-dasharray", d => d.pendingCount > 0 && d.verifiedCount === 0 ? "4,4" : "0");
-
-
-        // 2. NODES
-        const nodeGroup = g.select(".nodes");
-        const node = nodeGroup.selectAll<SVGGElement, any>("g")
-            .data(mutableNodes, (d) => d.id);
-
-        // EXIT
-        node.exit()
-            .transition().duration(300)
-            .attr("transform", (d: any) => `translate(${d.x},${d.y}) scale(0)`) // Shrink out
-            .attr("opacity", 0)
-            .remove();
-
-        // ENTER
-        const nodeEnter = node.enter().append("g")
-            .attr("cursor", "pointer")
-            .attr("opacity", 0)
-            // Start slightly scaled down
-            .call(s => s.attr("transform", d => `translate(${d.x},${d.y}) scale(0.5)`))
-            .call(d3.drag<SVGGElement, any>()
-                .on("start", dragstarted)
-                .on("drag", dragged)
-                .on("end", dragended)
-            );
-
-        // Node Visuals (Enter only)
-
-        // Main circle
-        nodeEnter.append("circle")
-            .attr("class", "main-circle")
-            .attr("r", d => 24 + Math.min(d.strength * 2, 16))
-            .attr("fill", "#ffffff")
-            .style("filter", "url(#drop-shadow)");
-
-        // Label Bg
-        nodeEnter.append("rect")
-            .attr("class", "label-bg")
-            .attr("rx", 6).attr("ry", 6)
-            .attr("fill", "rgba(255, 255, 255, 0.85)")
-            .attr("height", 18);
-
-        // Label Text
-        nodeEnter.append("text")
-            .attr("class", "label-text")
-            .attr("dy", 46)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "11px")
-            .attr("font-weight", "600")
-            .attr("font-family", "system-ui")
-            .attr("fill", "#1e293b")
-            .style("pointer-events", "none");
-
-        // "Me" indicator
-        nodeEnter.filter(d => d.id === 'me')
-            .append("circle")
-            .attr("r", 6)
-            .attr("fill", "#1e293b");
-
-
-        // UPDATE (Merge)
-        const nodeMerge = nodeEnter.merge(node);
-
-        nodeMerge
-            .on("click", (event, d) => {
-                event.stopPropagation();
-                onNodeClick(d as unknown as GraphNode);
-            });
-
-        // Transition nodes to new state
-        nodeMerge.transition().duration(500)
-            .attr("opacity", 1)
-            .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
-
-        // Update colors based on current status (e.g. if status changes)
-        nodeMerge.select(".main-circle")
-            .transition().duration(500)
-            .attr("r", d => 24 + Math.min(d.strength * 2, 16))
-            .attr("stroke", d => {
-                if (d.statusMix.verified >= d.statusMix.pending) return "#059669"; // Emerald 600
-                return "#d97706"; // Amber 600
-            })
-            .attr("stroke-width", d => d.statusMix.verified > 0 ? 3 : 2)
-            .attr("stroke-dasharray", d => (d.statusMix.verified === 0 && d.statusMix.pending > 0) ? "4,2" : "0");
-
-        // Update label text and bg size
-        nodeMerge.select(".label-text")
-            .text(d => d.id === 'me' ? 'You' : d.label);
-
-        nodeMerge.select(".label-bg")
-            .attr("x", d => -(((d.id === 'me' ? 'You' : d.label).length * 7) / 2) - 4)
-            .attr("y", 33)
-            .attr("width", d => (d.id === 'me' ? 'You' : d.label).length * 7 + 8);
-
-        // Hover Effects
-        nodeMerge.on("mouseover", function () {
-            d3.select(this).select(".main-circle").attr("stroke", "#3b82f6");
-        }).on("mouseout", function (_event, d: any) {
-            d3.select(this).select(".main-circle").attr("stroke",
-                d.statusMix.verified >= d.statusMix.pending ? "#059669" : "#d97706"
-            );
+            // New node initialization
+            const newNode = { ...d, x: width / 2, y: height / 2 };
+            nodesRef.current.set(d.id, newNode);
+            return newNode;
         });
 
-        /**
-         * Simulation Tick
-         * Updates the positions of SVG elements based on the D3 simulation results.
-         * We specifically separate scale transitions from position updates to avoid jitter.
-         */
-        simulation.on("tick", () => {
-            linkMerge
+        // Cleanup nodes that were removed from the array
+        const activeIds = new Set(data.nodes.map(n => n.id));
+        nodesRef_current_cleanup: {
+            const keys = Array.from(nodesRef.current.keys());
+            for (const id of keys) {
+                if (!activeIds.has(id)) nodesRef.current.delete(id);
+            }
+        }
+
+        const currentLinks = data.links.map(l => ({ ...l }));
+
+        // 2. Simulation Configuration
+        if (!simulationRef.current) {
+            simulationRef.current = d3.forceSimulation()
+                .force("charge", d3.forceManyBody().strength(-2000)) // Slightly stronger repulsion
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collide", d3.forceCollide().radius(90).strength(1));
+        }
+
+        const sim = simulationRef.current;
+        sim.nodes(currentNodes);
+        sim.force("link", d3.forceLink(currentLinks).id((d: any) => d.id).distance(200).strength(1));
+
+        // Anchor "Me" Node Always
+        currentNodes.forEach(n => {
+            if (n.isMe) {
+                n.fx = width / 2;
+                n.fy = height / 2;
+            } else {
+                n.fx = null;
+                n.fy = null;
+            }
+        });
+
+        // Smooth restart with very low alpha for filter changes (minimal jitter)
+        sim.alpha(0.2).alphaDecay(0.04).restart();
+
+        // 3. Rendering (D3 Data Join)
+        const g = d3.select(gRef.current);
+        const linksLayer = g.select(".links-layer");
+        const nodesLayer = g.select(".nodes-layer");
+
+        // --- LINKS ---
+        const links = linksLayer.selectAll<SVGLineElement, any>("line")
+            .data(currentLinks, (d: any) => d.source.id + "-" + d.target.id)
+            .join(
+                enter => enter.append("line")
+                    .attr("opacity", 0)
+                    .attr("stroke-linecap", "round")
+                    .attr("stroke", (d: any) => d.pendingCount > 0 ? "#f59e0b" : "#10b981"),
+                update => update.attr("stroke", (d: any) => d.pendingCount > 0 ? "#f59e0b" : "#10b981"),
+                exit => exit.transition().duration(200).attr("opacity", 0).remove()
+            )
+            .attr("stroke-width", d => Math.max(2, Math.min(6, d.verifiedCount + 1)))
+            .attr("stroke-dasharray", "0")
+            .on("click", (event, d) => {
+                event.stopPropagation();
+                onEdgeClick(d);
+            });
+
+        links.transition().duration(500).attr("opacity", 0.6);
+
+        // --- NODES ---
+        const nodes = nodesLayer.selectAll<SVGGElement, any>("g.node-group")
+            .data(currentNodes, d => d.id)
+            .join(
+                enter => {
+                    const group = enter.append("g")
+                        .attr("class", "node-group")
+                        .style("cursor", "pointer")
+                        .attr("opacity", 0)
+                        .call(d3.drag<SVGGElement, any>()
+                            .on("start", (e, d) => {
+                                if (!e.active) sim.alphaTarget(0.3).restart();
+                                d.fx = d.x; d.fy = d.y;
+                            })
+                            .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
+                            .on("end", (e, d) => {
+                                if (!e.active) sim.alphaTarget(0);
+                                if (!d.isMe) { d.fx = null; d.fy = null; }
+                            })
+                        );
+
+                    // Physical Node (Circle)
+                    group.append("circle")
+                        .attr("class", "node-circle")
+                        .attr("fill", "var(--surface)")
+                        .style("filter", "url(#drop-shadow)");
+
+                    // Identity Card (Unified name + stats)
+                    const card = group.append("g").attr("class", "node-card")
+                        .attr("transform", "translate(0, 36)");
+
+                    card.append("rect").attr("class", "card-bg")
+                        .attr("rx", 8).attr("ry", 8)
+                        .attr("fill", "var(--surface)")
+                        .attr("stroke", "var(--border)")
+                        .style("backdrop-filter", "blur(12px)");
+
+                    const stats = card.append("g").attr("class", "card-stats")
+                        .attr("transform", "translate(0, 14)");
+
+                    // Stats: OUT
+                    const out = stats.append("g").attr("class", "stat-out");
+                    out.append("text").attr("class", "label").attr("dx", -20).attr("dy", 0)
+                        .attr("font-size", "7px").attr("font-weight", "900").attr("fill", "var(--muted)").text("OUT");
+                    out.append("text").attr("class", "value").attr("dx", -4).attr("dy", 0)
+                        .attr("font-size", "11px").attr("font-weight", "900").attr("fill", "var(--color-verified)");
+
+                    // Stats: IN
+                    const inc = stats.append("g").attr("class", "stat-in");
+                    inc.append("text").attr("class", "label").attr("dx", 10).attr("dy", 0)
+                        .attr("font-size", "7px").attr("font-weight", "900").attr("fill", "var(--muted)").text("IN");
+                    inc.append("text").attr("class", "value").attr("dx", 24).attr("dy", 0)
+                        .attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#6366f1");
+
+                    card.append("text").attr("class", "card-name")
+                        .attr("text-anchor", "middle").attr("font-size", "11px")
+                        .attr("font-weight", "700").attr("fill", "var(--foreground)");
+
+                    return group;
+                },
+                update => update,
+                exit => exit.transition().duration(200).attr("opacity", 0).remove()
+            )
+            .on("click", (e, d) => { e.stopPropagation(); onNodeClick(d); });
+
+        nodes.transition().duration(500).attr("opacity", 1);
+
+        // --- TICK (Visual Sync) ---
+        sim.on("tick", () => {
+            links
                 .attr("x1", (d: any) => d.source.x)
                 .attr("y1", (d: any) => d.source.y)
                 .attr("x2", (d: any) => d.target.x)
                 .attr("y2", (d: any) => d.target.y);
 
-            nodeMerge
-                .attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+            nodes.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
         });
 
-        // --- Drag Handlers ---
-        function dragstarted(event: any, d: any) {
-            if (!event.active) simulation?.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
+        // Run heavy attribute updates in the data-update phase (not in tick!)
+        nodes.each(function (d: any) {
+            const el = d3.select(this);
+            const hasSent = (d.interactionStats?.sent ?? 0) > 0;
+            const hasRec = (d.interactionStats?.received ?? 0) > 0;
+            const hasStats = hasSent || hasRec;
 
-        function dragged(event: any, d: any) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
+            // Update main circle
+            el.select(".node-circle")
+                .transition().duration(400)
+                .attr("r", 24 + Math.min(d.strength * 2, 16))
+                .attr("stroke", d.statusMix.verified >= d.statusMix.pending ? "#10b981" : "#f59e0b")
+                .attr("stroke-width", d.statusMix.verified > 0 ? 3 : 2);
 
-        function dragended(event: any, d: any) {
-            if (!event.active) simulation?.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
+            // Update card layout
+            const name = d.isMe ? "You" : d.label;
+            const card = el.select(".node-card");
+            const cardStats = card.select(".card-stats");
 
-        return () => {
-            // Optional: simulation.stop() on unmount if multiple graphs are used
-        };
-    }, [data, dimensions, onNodeClick, onEdgeClick]);
+            const cardWidth = Math.max(name.length * 7 + 24, hasStats ? (hasSent && hasRec ? 72 : 40) : 0);
+            const cardHeight = hasStats ? 44 : 24;
+
+            card.select(".card-bg")
+                .transition().duration(400)
+                .attr("x", -cardWidth / 2)
+                .attr("y", -12)
+                .attr("width", cardWidth)
+                .attr("height", cardHeight);
+
+            cardStats.style("display", hasStats ? "" : "none");
+            cardStats.select(".stat-out").style("display", hasSent ? "" : "none")
+                .attr("transform", hasRec ? "translate(-2, 0)" : "translate(12, 0)")
+                .select(".value").text(d.interactionStats?.sent ?? 0);
+            cardStats.select(".stat-in").style("display", hasRec ? "" : "none")
+                .attr("transform", hasSent ? "translate(2, 0)" : "translate(-12, 0)")
+                .select(".value").text(d.interactionStats?.received ?? 0);
+
+            card.select(".card-name")
+                .text(name)
+                .transition().duration(400)
+                .attr("dy", hasStats ? 26 : 5);
+        });
+
+    }, [data, dimensions, filter, onNodeClick, onEdgeClick]);
 
     return (
-        <div ref={wrapperRef} className="w-full h-full relative overflow-hidden bg-grid-pattern bg-[length:40px_40px]">
+        <div ref={wrapperRef} className="w-full h-full relative overflow-hidden bg-[var(--background)] transition-colors duration-500">
             <svg ref={svgRef} className="w-full h-full block" />
-            <div className="absolute inset-0 pointer-events-none bg-radial-fade"></div>
+            <div className="absolute inset-0 pointer-events-none bg-[var(--background-image-grid-pattern)]" />
+            <div className="absolute inset-0 pointer-events-none bg-[var(--background-image-radial-fade)]" />
         </div>
     );
 });
