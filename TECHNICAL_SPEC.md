@@ -1,146 +1,187 @@
-# Pledge Technical Specification
+# Technical Specification
 
-This document provides a comprehensive technical breakdown of the Pledge platform, including architecture, data flows, and system patterns.
+## 1. System Overview
 
----
+**Pledge** is a trust-based professional network that enables users to create cryptographic "proofs" (receipts) of their impact and helpfulness. The system creates a real-time trust graph based on these verified interactions.
 
-## 1. System Architecture
+### Architecture
 
-Pledge is built as a **Serverless-First Web Application** using a modern reactive stack.
-
-- **Frontend**: Single Page Application (SPA) built with React and Vite.
-- **Backend-as-a-Service (BaaS)**: Supabase (Auth, PostgreSQL, Storage, Edge Functions).
-- **AI Layer**: Gemini 1.5 Flash for semantic reputation analysis.
-- **Visualization**: D3.js for force-directed network graph rendering.
+- **Frontend**: React (Vite) + TypeScript + Tailwind CSS (Shadcn/UI theme).
+- **Backend Service**: Python (Flask) API for complex business logic, referrals, and state transitions.
+- **Database**: Supabase (PostgreSQL) + Auth.
+- **State Management**: React Context + optimistic local updates.
 
 ---
 
-## 2. Directory Structure
+## 2. Database Schema (PostgreSQL)
 
-The project follows a feature-based organization.
+### 2.1 Enum: `receipt_status`
 
-```text
-src/
-├── app/            # Application core (Router, Auth Providers, Layout)
-├── components/     # Shared UI components (GraphCanvas, Drawer, etc.)
-├── services/       # External service adapters (Supabase, Gemini, Global Store)
-├── views/          # Page-level views organized by feature
-│   ├── Home/       # Main network dashboard
-│   ├── Receipts/   # Proof creation, claim, and ledger views
-│   ├── Profile/    # Trust Portfolio & CV views
-│   ├── Auth/       # Login, Signup, Onboarding
-│   └── Connections/# Network management
-├── types.ts        # Centralized TypeScript definitions
-├── utils/          # Pure helper functions (Export, Formatting)
-└── constants.ts    # Centralized configuration and static data
-```
+- `AWAITING_SIGNUP`: Recipient has not signed up yet.
+- `AWAITING_CONNECTION`: Recipient is signed up but not connected to sender.
+- `AWAITING_ACCEPTANCE`: Recipient is connected but hasn't verified the receipt.
+- `ACCEPTED`: Recipient has verified the receipt.
+- `REJECTED`: Recipient has rejected the receipt.
 
----
+### 2.2 Table: `public_profiles`
 
-## 3. Data Models
+Publicly viewable user information.
+| Column | Type | Description |
+|---|---|---|
+| `user_id` | UUID (PK) | References `auth.users(id)` |
+| `email` | TEXT | User email |
+| `first_name` | TEXT | First name |
+| `last_name` | TEXT | Last name |
+| `institution` | TEXT | Organization/School |
+| `created_at` | TIMESTAMPTZ | Creation timestamp |
 
-### 3.1. Database Schema (PostgreSQL)
+### 2.3 Table: `connections`
 
-| Table | Purpose | Key Columns |
-| :--- | :--- | :--- |
-| `public_profiles` | User identity & reputation meta | `user_id`, `email`, `first_name`, `institution` |
-| `connections` | Professional graph edges | `low_id`, `high_id`, `accepted`, `requested_by` |
-| `receipts` | Interaction proofs (nodes) | `from_user_id`, `to_user_id`, `description`, `tags`, `is_public`, `status` |
+Represents an undirected edge between two users. Enforced uniqueness via `low_id < high_id`.
+| Column | Type | Description |
+|---|---|---|
+| `id` | UUID (PK) | Connection ID |
+| `low_id` | UUID | User ID (lexicographically smaller) |
+| `high_id` | UUID | User ID (lexicographically larger) |
+| `requested_by` | UUID | ID of user who initiated the request |
+| `accepted` | BOOLEAN | `true` if fully connected, `false` if pending |
+| `requested_at` | TIMESTAMPTZ | Time of request |
+| `accepted_at` | TIMESTAMPTZ | Time of acceptance |
+**Constraints**: Unique (`low_id`, `high_id`), Check (`low_id < high_id`).
 
-### 3.2. Core TypeScript Interfaces
+### 2.4 Table: `receipts`
 
-```typescript
-export type ReceiptStatus = 'AWAITING_SIGNUP' | 'AWAITING_CONNECTION' | 'ACCEPTED' | 'REJECTED';
-
-export interface Receipt {
-    id: string;
-    from_user_id: string;
-    to_user_id: string | null;
-    recipient_email: string;
-    status: ReceiptStatus;
-    tags: string[];
-    description: string | null;
-    is_public: boolean;
-    created_at: string;
-}
-
-export interface GraphNode {
-    id: string;
-    label: string;
-    isMe?: boolean;
-    strength: number;
-    statusMix: { verified: number; pending: number; unclear: number };
-    interactionStats?: { sent: number; received: number };
-}
-```
+The core atomic unit of "Proof".
+| Column | Type | Description |
+|---|---|---|
+| `id` | UUID (PK) | Receipt ID |
+| `from_user_id` | UUID | Sender (Creator) ID |
+| `to_user_id` | UUID (Nullable) | Recipient ID (null if not on platform) |
+| `recipient_email` | TEXT | Email text for late-binding |
+| `connection_id` | UUID (FK) | Link to `connections` table |
+| `tags` | TEXT[] | Array of tags (e.g. #mentorship) |
+| `description` | TEXT | Description of impact |
+| `is_public` | BOOLEAN | Visibility flag |
+| `status` | receipt_status | Current state |
+| `created_at` | TIMESTAMPTZ | Creation time |
+| `accepted_at` | TIMESTAMPTZ | Verification time |
 
 ---
 
-## 4. Data Flows
+## 3. Backend API Services (`app.py`)
 
-### 4.1. Receipt Lifecycle (Proof Creation & Claim)
+### 3.1 Authentication
 
-```mermaid
-sequenceDiagram
-    participant S as Sender
-    participant B as Backend (Supabase/DB)
-    participant R as Recipient (Email/User)
-    
-    S->>B: Create Receipt (Email + Description)
-    B-->>B: Generate Unique Connection/ID
-    B->>R: Send Verification Email
-    Note over R: Recipient joins Pledge
-    R->>B: Claim Receipt (via unique ID)
-    B-->>B: Update Status to ACCEPTED
-    B-->>B: Establish mutual Connection
-    B->>S: Notify Acceptance
-```
+**Middleware**: `@authenticate_user`
 
-### 4.2. Global State & Silent Fetching
+- Verifies Supabase JWT token from `Authorization` header.
+- Sets `g.user` context for the request.
 
-```mermaid
-graph TD
-    A[Window Focus / Auth Event] --> B{Silent Mode?}
-    B -- Yes --> C[fetchData options.silent: true]
-    B -- No --> D[setLoading true]
-    C --> E[Supabase API Call]
-    D --> E
-    E --> F[Update Zustand State]
-    F --> G[Components automatically re-render]
-    G --> H[setLoading false]
-```
+### 3.2 User Onboarding
+
+**Endpoint**: `POST /api/onboarding`
+**Function**: `onboarding()`
+
+1. **Profile Creation**: Upserts `public_profiles` with name/institution.
+2. **Referral Handling**:
+   - If `referrer_id` is present, automatically creates an `accepted=True` connection between the new user and referrer.
+3. **Receipt Recovery (Orphaned Receipts)**:
+   - Scans `receipts` table for records where `recipient_email` matches new user's email AND `to_user_id` is null.
+   - For each sender of such receipts:
+     - Checks/Creates a Connection between New User and Sender.
+     - Updates all matching receipts: sets `to_user_id = new_user.id`, `connection_id`, and status `AWAITING_ACCEPTANCE`.
+
+### 3.3 Connection Management
+
+**Endpoint**: `POST /api/connections/request`
+**Function**: `request_connection()`
+
+1. Looks up target user by email.
+2. Checks for existing connection (rejects if exists).
+3. Inserts new `connections` row with `accepted=False`.
+
+**Endpoint**: `POST /api/connections/accept`
+**Function**: `accept_connection()`
+
+1. Updates `connections` table: set `accepted=True`, `accepted_at=NOW()`.
+
+**Endpoint**: `POST /api/connections/remove`
+**Function**: `remove_connection()`
+
+1. Deletes row from `connections`.
+
+### 3.4 Receipt Lifecycle
+
+**Endpoint**: `POST /api/receipts/create`
+**Function**: `create_receipt()`
+
+1. **Recipient Lookup**: Checks `public_profiles` for email.
+2. **Status Determination**:
+   - No User Found -> `AWAITING_SIGNUP`
+   - User Found, No Connection -> `AWAITING_CONNECTION`
+   - User Found, Connected -> `AWAITING_ACCEPTANCE`
+3. **Persist**: Inserts into `receipts`.
+
+**Endpoint**: `POST /api/receipts/claim`
+**Function**: `claim_receipt()`
+
+1. **Authorization**: Checks if `to_user_id == currentUser` OR `recipient_email == currentUser.email` (Late Binding).
+2. **Late Linking**:
+   - If connection is missing (e.g. email match case), automatically creates/upserts `connections` (accepted=True).
+   - Updates `receipts` to link `to_user_id` and `connection_id`.
+3. **Verification**: Sets status `ACCEPTED`.
+
+**Endpoint**: `POST /api/receipts/reject`
+**Function**: `reject_receipt()`
+
+1. Validates `to_user_id` matches requestor.
+2. Sets status `REJECTED`.
 
 ---
 
-## 5. Key Technical Patterns
+## 4. Frontend Architecture
 
-### 5.1. Adaptive Theming (Dark Mode)
-The application implements a custom design system using CSS variables controlled by a `ThemeProvider`.
-- **Theme Injection**: The `ThemeProvider` injects variables into `:root` or a `data-theme` attribute.
-- **Tailwind Integration**: Seamless switching between themes via Tailwind's `dark:` modifier.
-- **Persistence**: User theme preference is persisted in `localStorage`.
+### 4.1 State Management (`store.tsx`)
 
-### 5.2. The Trust Graph (D3.js)
-The graph uses a force-directed simulation to represent relationship density. 
-- **Memoization**: `GraphCanvas` uses `React.memo` to prevent expensive re-renders.
-- **Conditional Links**: Link colors are computed dynamically based on the presence of pending receipts between nodes.
-- **Physics Persistence**: Node physics states are preserved across data updates using reference mapping.
+**Context**: `StoreContext`
+**Data Sources**:
 
-### 5.3. AI CAR Engine (Gemini)
-The AI engine transforms raw unstructured text into structured professional highlights.
-- **Service**: `aiService.ts`
-- **Pattern**: Asynchronous batch processing on the client-side to mitigate rate limits and ensure a progressive loading experience in CV mode.
+- **Supabase Direct**: `public_profiles`, `receipts` (Read-only lists, real-time subscriptions).
+- **Backend API**: Mutations (Create, Accept, Reject).
+  **Functions**:
+- `fetchData()`: Aggregates profile, receipt, and connection data. Derives `allUsers` cache.
+- `createReceipt(...)`: Calls API -> Optimistic Update.
+- `claimReceipt(...)`: Calls API -> Refetches.
+- `addConnection(...)`: Calls API -> Refetches.
 
-### 5.3. Relationship Deduplication
-Connections are stored using a `low_id`/`high_id` pair (where `low_id < high_id`) to ensure only one record exists per pair of individuals, regardless of who initiated the first contact.
+### 4.2 Graph Visualization (`HomePage.tsx`)
+
+**Logic**:
+
+1. **Node generation**:
+   - 'Me' Node (Center)
+   - Nodes for every accepted connection.
+2. **Edge generation**:
+   - Links based on `connections` table.
+3. **Metadata Aggregation**:
+   - Calculates `sentCount` / `receivedCount` by filtering the `receipts` array for each connection pair.
+   - Filters nodes based on `GAVE` vs `RECEIVED` filter state.
+
+### 4.3 Key Components
+
+- **`Layout`**: Global wrapper, manages navigation and responsiveness.
+- **`ReceiptDetailPage`**: Displays proof status. Uses conditional styling for states (Green=Accepted, Red=Rejected).
+- **`ConnectionsPage`**: Tabs for 'My Network' vs 'Requests'.
 
 ---
 
-## 6. Infrastructure & Deployment
+## 5. Security Model (RLS)
 
-- **Environment Config**: Managed via `.env` (VITE_ prefixed for client access).
-- **Communication**: Supabase PostgREST for standard CRUD, RPC for complex transactions (like claiming a receipt).
-- **Exports**: `exportUtils.ts` handles client-side Blob generation for CSV downloads.
+Row Level Security is enabled in PostgreSQL (`schema.sql`).
 
----
-| **END OF TECHNICAL SPECIFICATION** |
+- **Profiles**: Public read, Owner write.
+- **Connections**: Read/Write only if `auth.uid()` is `low_id` or `high_id`.
+- **Receipts**:
+  - Read: Sender, Recipient, or Email Match (if unassigned).
+  - Write: Sender only.
+  - Update: Involved parties.
