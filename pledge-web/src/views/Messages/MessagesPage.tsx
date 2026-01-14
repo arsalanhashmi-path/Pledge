@@ -1,10 +1,59 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Layout } from '../../app/Layout';
 import { useStore } from '../../services/store';
 import { chatService } from '../../services/chatService';
 import type { ChatMessage } from '../../services/chatService';
-import { Send, Search, MessageCircle, Loader2 } from 'lucide-react';
+import { Send, MessageCircle, Loader2, Plus, X } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
+import { ProofPickerModal } from './ProofPickerModal';
+import { ReceiptDetailView } from '../Receipts/ReceiptDetailView';
+import { CreateReceiptForm } from '../Receipts/CreateReceiptForm';
+import type { Receipt } from '../../types';
+import { ChatSidebar } from './ChatSidebar';
+import { MessageBubble } from './MessageBubble';
+
+// Modal for creating a new proof
+const CreateProofModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: (receipt: Receipt) => void }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+             <div className="bg-surface w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl relative border border-border">
+                <div className="absolute top-6 right-6 z-10">
+                     <button onClick={onClose} className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-sm">
+                        <X size={20} />
+                     </button>
+                </div>
+                <div className="p-2 md:p-6">
+                    <CreateReceiptForm 
+                        isInModal={true} 
+                        initialRecipientEmail="" 
+                        onCancel={onClose}
+                        onSuccess={onSuccess}
+                    />
+                </div>
+             </div>
+        </div>
+    );
+};
+
+// Modal for viewing full proof details
+const ProofDetailsModal = ({ proofId, onClose }: { proofId: string | null; onClose: () => void }) => {
+    if (!proofId) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+             <div className="bg-surface w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl relative border border-border">
+                <div className="sticky top-0 right-0 z-10 flex justify-end p-6 pointer-events-none">
+                     <button onClick={onClose} className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors">
+                        <X size={20} />
+                     </button>
+                </div>
+                <div className="p-2 md:p-6 -mt-16">
+                    <ReceiptDetailView receiptId={proofId} onClose={onClose} />
+                </div>
+             </div>
+        </div>
+    );
+};
 
 export const MessagesPage: React.FC = () => {
     const { connections, users, loading } = useStore();
@@ -14,39 +63,49 @@ export const MessagesPage: React.FC = () => {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [search, setSearch] = useState('');
     const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+    const [showProofPicker, setShowProofPicker] = useState(false);
     
     // Auth check state
     const [myId, setMyId] = useState<string | null>(null);
+
+    // Modal states
+    const [viewingProofId, setViewingProofId] = useState<string | null>(null);
+    const [showCreateProof, setShowCreateProof] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Get My ID & Unread Counts
+    // Get My ID
     useEffect(() => {
         supabase.auth.getUser().then(({ data }) => {
-            if (data.user) {
-                setMyId(data.user.id);
-                // Fetch unread
-                chatService.getUnreadCounts().then(setUnreadCounts);
-            }
+            if (data.user) setMyId(data.user.id);
         });
     }, []);
 
+    // Also fetch unread counts on mount (and periodically?)
+    useEffect(() => {
+        if (myId) {
+            chatService.getUnreadCounts().then(setUnreadCounts);
+        }
+    }, [myId]);
+
     // Filter Accepted Connections
-    const activeConnections = connections
-        .filter(c => c.accepted)
-        .map(c => {
-            const otherId = c.low_id === myId ? c.high_id : c.low_id;
-            const user = users.find(u => u.id === otherId);
-            return {
-                id: c.id,
-                otherId,
-                user,
-            };
-        })
-        .filter(c => {
-            if (!search) return true;
-            return c.user?.maskedName.toLowerCase().includes(search.toLowerCase());
-        });
+    const activeConnections = useMemo(() => {
+        return connections
+            .filter(c => c.accepted)
+            .map(c => {
+                const otherId = c.low_id === myId ? c.high_id : c.low_id;
+                const user = users.find(u => u.id === otherId);
+                return {
+                    id: c.id,
+                    otherId,
+                    user,
+                };
+            })
+            .filter(c => {
+                if (!search) return true;
+                return c.user?.maskedName.toLowerCase().includes(search.toLowerCase());
+            });
+    }, [connections, users, myId, search]);
 
     // Mark Read when selecting a connection
     useEffect(() => {
@@ -59,12 +118,15 @@ export const MessagesPage: React.FC = () => {
                  chatService.markThreadRead(connection.otherId);
              }
         }
-    }, [selectedConnectionId]);
+    }, [selectedConnectionId, activeConnections]);
 
 
     // Fetch Messages when connection selected
     useEffect(() => {
-        if (!selectedConnectionId || !myId) return;
+        if (!selectedConnectionId || !myId) {
+            setMessages([]);
+            return;
+        }
 
         const connection = activeConnections.find(c => c.id === selectedConnectionId);
         if (!connection) return;
@@ -74,9 +136,13 @@ export const MessagesPage: React.FC = () => {
             setMessages(msgs);
             setLoadingMessages(false);
             scrollToBottom();
+        })
+        .catch(err => {
+            console.error(err);
+            setLoadingMessages(false);
         });
 
-    }, [selectedConnectionId, myId]);
+    }, [selectedConnectionId, myId, activeConnections]);
 
     // Realtime Subscription
     useEffect(() => {
@@ -94,8 +160,6 @@ export const MessagesPage: React.FC = () => {
                 });
                 
                 // If it came from the other person while we are looking at it, mark read instantly?
-                // Ideally yes, but we rely on the user clicking or focus. 
-                // For simplicity, we just won't increment the badge.
                 if (newMsg.sender_id !== myId) {
                      chatService.markThreadRead(newMsg.sender_id);
                 }
@@ -131,7 +195,28 @@ export const MessagesPage: React.FC = () => {
         const content = inputText.trim();
         setInputText(''); // Clear immediately
 
-        await chatService.sendMessage(connection.otherId, content);
+        try {
+            const newMsg = await chatService.sendMessage(connection.otherId, content);
+            setMessages(prev => [...prev, newMsg]);
+            scrollToBottom();
+        } catch (err) {
+            console.error("Failed to send", err);
+        }
+    };
+
+    const handleSelectProof = async (proofId: string) => {
+        setShowProofPicker(false);
+        if (!selectedConnectionId) return;
+        const connection = activeConnections.find(c => c.id === selectedConnectionId);
+        if (!connection) return;
+
+        try {
+            const newMsg = await chatService.sendProofMessage(connection.otherId, proofId);
+            setMessages(prev => [...prev, newMsg]);
+            scrollToBottom();
+        } catch (err) {
+            console.error("Failed to send proof", err);
+        }
     };
 
     const selectedUser = activeConnections.find(c => c.id === selectedConnectionId)?.user;
@@ -152,70 +237,16 @@ export const MessagesPage: React.FC = () => {
 
     return (
         <Layout>
-            <div className="h-[calc(100vh-6rem)] w-full flex bg-surface border border-border rounded-3xl shadow-xl overflow-hidden">
+            <div className="flex h-[calc(100vh-6rem)] bg-surface border border-border rounded-3xl shadow-xl overflow-hidden animate-fade-in">
                 
-                {/* Sidebar List */}
-                <div className="w-80 border-r border-border flex flex-col bg-background/50 backdrop-blur-sm">
-                    <div className="p-4 border-b border-border space-y-3">
-                        <h2 className="font-bold text-lg text-foreground flex items-center gap-2">
-                            <MessageCircle size={20} className="text-accent" />
-                            Messages
-                        </h2>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={14} />
-                            <input 
-                                type="text"
-                                placeholder="Search connections..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)} 
-                                className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all font-medium"
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                        {activeConnections.length === 0 ? (
-                            <div className="text-center text-muted text-xs p-4 italic">
-                                No connections found. Connect with peers to start chatting!
-                            </div>
-                        ) : (
-                            activeConnections.map(c => {
-                                const unread = unreadCounts[c.otherId] || 0;
-                                return (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => setSelectedConnectionId(c.id)}
-                                        className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 relative ${selectedConnectionId === c.id ? 'bg-accent/10 border border-accent/20' : 'hover:bg-background border border-transparent'}`}
-                                    >
-                                        <div className="relative">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm shadow-sm ${selectedConnectionId === c.id ? 'bg-accent' : 'bg-slate-300 dark:bg--700'}`}>
-                                                {c.user?.maskedName.charAt(0)}
-                                            </div>
-                                            {unread > 0 && (
-                                                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 h-4 min-w-[16px] flex items-center justify-center rounded-full border-2 border-surface shadow-sm">
-                                                    {unread > 9 ? '9+' : unread}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex justify-between items-center">
-                                                <div className={`font-bold text-sm truncate ${selectedConnectionId === c.id ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                                    {c.user?.maskedName}
-                                                </div>
-                                                {unread > 0 && (
-                                                     <div className="w-2 h-2 rounded-full bg-red-500" />
-                                                )}
-                                            </div>
-                                            <div className={`text-[10px] truncate ${unread > 0 ? 'text-foreground font-bold' : 'text-muted'}`}>
-                                                {c.user?.institution || 'Unknown Institution'}
-                                            </div>
-                                        </div>
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
+                <ChatSidebar 
+                    activeConnections={activeConnections}
+                    selectedConnectionId={selectedConnectionId}
+                    setSelectedConnectionId={setSelectedConnectionId}
+                    unreadCounts={unreadCounts}
+                    search={search}
+                    setSearch={setSearch}
+                />
 
                 {/* Chat Area */}
                 <div className="flex-1 flex flex-col relative bg-dots-pattern">
@@ -249,19 +280,14 @@ export const MessagesPage: React.FC = () => {
                                         <p className="text-xs">Say hello to start the conversation!</p>
                                     </div>
                                 ) : (
-                                    messages.map((msg, i) => {
-                                        const isMe = msg.sender_id === myId;
-                                        return (
-                                            <div key={msg.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${isMe ? 'bg-slate-900 dark:bg-blue-600 text-white rounded-tr-none border-2 border-white' : 'bg-white dark:bg-slate-200 text-slate-900 border border-border dark:border-transparent rounded-tl-none'}`}>
-                                                    {msg.content}
-                                                    <div className={`text-[9px] mt-1 text-right ${isMe ? 'text-white/60' : 'text-muted'}`}>
-                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
+                                    messages.map((msg, i) => (
+                                        <MessageBubble 
+                                            key={msg.id || i}
+                                            msg={msg}
+                                            isMe={msg.sender_id === myId}
+                                            setViewingProofId={setViewingProofId}
+                                        />
+                                    ))
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
@@ -269,6 +295,13 @@ export const MessagesPage: React.FC = () => {
                             {/* Input */}
                             <div className="p-4 bg-background border-t border-border">
                                 <form onSubmit={handleSend} className="relative flex items-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowProofPicker(true)}
+                                        className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:text-foreground rounded-2xl transition-colors"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
                                     <input 
                                         className="w-full bg-slate-100 dark:bg-slate-200 text-slate-900 placeholder:text-slate-500 border-0 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-accent/50 transition-all font-medium resize-none"
                                         placeholder="Type a message..."
@@ -297,6 +330,32 @@ export const MessagesPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            <ProofPickerModal 
+                isOpen={showProofPicker} 
+                onClose={() => setShowProofPicker(false)} 
+                onSelect={handleSelectProof} 
+                onCreateNew={() => {
+                    setShowProofPicker(false);
+                    setShowCreateProof(true);
+                }}
+            />
+
+            <CreateProofModal 
+                isOpen={showCreateProof} 
+                onClose={() => setShowCreateProof(false)} 
+                onSuccess={(receipt) => {
+                    setShowCreateProof(false); // Close modal
+                    if (selectedConnectionId && receipt) {
+                        handleSelectProof(receipt.id);
+                    }
+                }}
+            />
+
+            <ProofDetailsModal 
+                proofId={viewingProofId} 
+                onClose={() => setViewingProofId(null)} 
+            />
         </Layout>
     );
 };

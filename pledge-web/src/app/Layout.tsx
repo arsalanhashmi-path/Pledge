@@ -8,15 +8,24 @@ interface LayoutProps {
     children?: React.ReactNode;
 }
 
-const NavItem = ({ to, icon: Icon, label, active, onClick, className }: { to?: string; icon: any; label: string; active?: boolean; onClick?: () => void, className?: string }) => {
+const NavItem = ({ to, icon: Icon, label, active, onClick, className, badge }: { to?: string; icon: any; label: string; active?: boolean; onClick?: () => void, className?: string, badge?: number }) => {
     const content = (
         <>
-            <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-            <span className="text-[10px] md:text-sm mt-1 md:mt-0">{label}</span>
+            <Icon size={20} strokeWidth={active ? 2.5 : 2} className="relative" />
+            <span className="text-[10px] md:text-sm mt-1 md:mt-0 flex-1">{label}</span>
+            {badge && badge > 0 && (
+                <span className="hidden md:flex bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] justify-center items-center shadow-sm">
+                    {badge > 99 ? '99+' : badge}
+                </span>
+            )}
+            {/* Mobile badge overlay on icon */}
+            {badge && badge > 0 ? (
+                <span className="md:hidden absolute top-0 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-surface animate-pulse" />
+            ) : null}
         </>
     );
 
-    const baseClass = `flex flex-col md:flex-row items-center md:space-x-3 p-2 md:px-4 md:py-3 rounded-lg transition-all duration-200 ${className || ''}`;
+    const baseClass = `flex flex-col md:flex-row items-center md:space-x-3 p-2 md:px-4 md:py-3 rounded-lg transition-all duration-200 relative ${className || ''}`;
     const activeClass = active
         ? 'text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800 font-medium'
         : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800';
@@ -39,7 +48,16 @@ const NavItem = ({ to, icon: Icon, label, active, onClick, className }: { to?: s
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
-    const { currentUser, signOut, receipts } = useStore();
+    const { currentUser, signOut, receipts, connections } = useStore();
+    const [unreadCounts, setUnreadCounts] = React.useState<{ [key: string]: number }>({});
+    
+    // Fetch unread counts dynamically
+    React.useEffect(() => {
+        // Dynamic import to avoid circular dependency if any (though chatService uses supabase directly)
+        import('../services/chatService').then(({ chatService }) => {
+             chatService.getUnreadCounts().then(setUnreadCounts);
+        });
+    }, []); // Only on mount. Ideally we'd subscribe, but this is a starter.
 
     const handleSignOut = async (e?: React.MouseEvent) => {
         e?.preventDefault();
@@ -55,6 +73,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     // Calculate Stats
     const helpGiven = receipts.filter(r => r.from_user_id === currentUser?.id && r.status === 'ACCEPTED').length;
     const helpReceived = receipts.filter(r => r.to_user_id === currentUser?.id && r.status === 'ACCEPTED').length;
+
+    // Calculate Badge Counts
+    const pendingReceiptsCount = receipts.filter(r => 
+        (r.status === 'AWAITING_ACCEPTANCE' || r.status === 'AWAITING_CONNECTION' || r.status === 'AWAITING_SIGNUP') &&
+        (r.to_user_id === currentUser?.id || r.recipient_email === currentUser?.email)
+    ).length;
+
+    const pendingConnectionsCount = connections.filter(c => 
+        !c.accepted && c.requested_by !== currentUser?.id
+    ).length;
+
+    const unreadMessagesCount = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+
+    const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
 
     return (
         <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
@@ -121,12 +153,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {/* Desktop Sidebar */}
                 <nav className="hidden md:flex w-64 flex-col border-r border-border bg-surface p-4 space-y-2 shrink-0">
                     <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
-                    <NavItem to="/connections" icon={Network} label="Connections" active={path === '/connections'} />
-                    <NavItem to="/receipts" icon={Receipt} label="Receipts" active={path === '/receipts'} />
+                    <NavItem to="/connections" icon={Network} label="Connections" badge={pendingConnectionsCount} active={path === '/connections'} />
+                    <NavItem to="/receipts" icon={Receipt} label="Receipts" badge={pendingReceiptsCount} active={path === '/receipts'} />
                     <NavItem to="/institutions" icon={Landmark} label="Institutions" active={path === '/institutions'} />
                     <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" active={path === '/leaderboard'} />
-                    <NavItem to="/messages" icon={MessageCircle} label="Messages" active={path === '/messages'} />
-                    <NavItem to="/notifications" icon={Bell} label="Notifications" active={path === '/notifications'} />
+                    <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={unreadMessagesCount} active={path === '/messages'} />
+                    <NavItem to="/notifications" icon={Bell} label="Notifications" badge={totalNotifications} active={path === '/notifications'} />
                     <NavItem to="/create" icon={PlusCircle} label="Create Proof" active={path === '/create'} />
                     <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
 
@@ -146,10 +178,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Mobile Bottom Tab Bar */}
             <nav className="md:hidden h-16 border-t border-border bg-surface flex justify-around items-center px-2 fixed bottom-0 w-full z-50 pb-safe">
                 <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
-                <NavItem to="/connections" icon={Network} label="Network" active={path === '/connections'} />
+                <NavItem to="/connections" icon={Network} label="Network" badge={pendingConnectionsCount} active={path === '/connections'} />
                 <NavItem to="/create" icon={PlusCircle} label="Create" active={path === '/create'} />
                 <NavItem to="/leaderboard" icon={Trophy} label="Top" active={path === '/leaderboard'} />
-                <NavItem to="/notifications" icon={Bell} label="Activity" active={path === '/notifications'} />
+                <NavItem to="/notifications" icon={Bell} label="Activity" badge={totalNotifications} active={path === '/notifications'} />
                 <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
                 <NavItem onClick={handleSignOut} icon={LogOut} label="Log Out" active={false} className="text-slate-400 hover:text-red-500" />
             </nav>

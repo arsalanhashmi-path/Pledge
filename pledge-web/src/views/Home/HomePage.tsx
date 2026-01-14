@@ -187,7 +187,7 @@ export function HomePage() {
                     {/* Center Button */}
                     <button 
                         onClick={() => graphRef.current?.centerOnUser()}
-                        className="p-3.5 bg-white/90 dark:bg-slate-950/80 backdrop-blur-xl border border-border/50 text-foreground rounded-2xl shadow-xl ring-1 ring-border/50 transition-all hover:scale-110 active:scale-95 hover:bg-slate-50 dark:hover:bg-slate-900 group"
+                        className="p-3.5 bg-white/90 dark:bg-slate-950/80 backdrop-blur-xl border border-border/50 text-slate-900 dark:text-white rounded-2xl shadow-xl ring-1 ring-border/50 transition-all hover:scale-110 active:scale-95 hover:bg-slate-50 dark:hover:bg-slate-900 group"
                         title="Center on Me"
                     >
                         <Focus size={20} className="group-hover:rotate-45 transition-transform duration-500" strokeWidth={2.5} />

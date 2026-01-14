@@ -3,6 +3,9 @@ import { useStore } from '../../services/store';
 import { Users, Inbox, Clock, UserPlus, X, CheckCircle2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Layout } from '../../app/Layout';
+import { Card } from '../../components/ui/Card';
+import { Avatar } from '../../components/ui/Avatar';
+import { Badge } from '../../components/ui/Badge';
 
 type Tab = 'NETWORK' | 'REQUESTS';
 
@@ -113,13 +116,13 @@ export function ConnectionsPage() {
                     </button>
                 </header>
 
-                <div className="bg-surface rounded-[2rem] border border-border shadow-xl shadow-slate-900/5 min-h-[500px] overflow-hidden">
+                <div className="min-h-[500px]">
 
                     {/* TAB: NETWORK */}
                     {tab === 'NETWORK' && (
-                        <div className="p-0">
+                        <div className="space-y-4">
                             {myNetwork.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 bg-surface rounded-[2rem] border border-border border-dashed">
                                     <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center text-muted border border-border">
                                         <Users size={32} />
                                     </div>
@@ -132,51 +135,47 @@ export function ConnectionsPage() {
                                     </Link>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-border">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {myNetwork.map((conn) => (
-                                        <Link 
+                                        <Card 
                                             key={conn.id} 
-                                            to={`/u/${conn.other_user_id}`}
-                                            className="p-6 flex items-center justify-between hover:bg-background/50 transition-colors group cursor-pointer block"
+                                            hoverEffect
+                                            className="p-6 flex flex-col items-center text-center space-y-4 group relative"
                                         >
-                                            <div className="flex items-center space-x-4">
-                                                <div className="w-12 h-12 bg-background rounded-full border border-border flex items-center justify-center text-muted font-bold text-sm">
-                                                    {conn.otherUser.maskedName.substring(0, 2).toUpperCase()}
+                                            <Link to={`/u/${conn.other_user_id}`} className="absolute inset-0 z-0" />
+                                            
+                                            <Avatar 
+                                                initials={conn.otherUser.maskedName.substring(0, 2).toUpperCase()} 
+                                                size="xl"
+                                                bgColor="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                            />
+                                            
+                                            <div>
+                                                <div className="font-bold text-foreground text-lg group-hover:text-emerald-500 transition-colors">
+                                                    {conn.otherUser.maskedName}
                                                 </div>
-                                                <div>
-                                                    <div className="font-bold text-foreground group-hover:text-accent transition-colors">{conn.otherUser.maskedName}</div>
-                                                    <div className="text-xs text-muted font-medium">{conn.otherUser.institution || 'Unknown Institution'}</div>
+                                                <div className="text-xs text-muted font-bold uppercase tracking-wider mt-1">
+                                                    {conn.otherUser.institution || 'Unknown'}
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-6">
-                                                <div className="text-right">
-                                                    <div className="text-[10px] uppercase font-bold text-muted opacity-40 tracking-wider">Status</div>
-                                                    <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                                                        Connected
-                                                    </div>
-                                                </div>
-                                                <div className="text-right hidden md:block">
-                                                    <div className="text-[10px] uppercase font-bold text-muted opacity-40 tracking-wider">Since</div>
-                                                    <div className="text-sm font-bold text-foreground">
-                                                        {conn.accepted_at ? new Date(conn.accepted_at).toLocaleDateString() : 'Unknown'}
-                                                    </div>
-                                                </div>
+                                            <div className="w-full pt-4 border-t border-border flex items-center justify-between relative z-10">
+                                                <Badge variant="success">Connected</Badge>
                                                 <button 
                                                     onClick={async (e) => {
-                                                        e.preventDefault(); // Prevent Link navigation
+                                                        e.preventDefault(); 
                                                         e.stopPropagation();
                                                         if (window.confirm("Remove this connection?")) {
                                                             await removeConnection(conn.id);
                                                         }
                                                     }}
-                                                    className="p-2 bg-background border border-border rounded-lg text-muted hover:text-red-500 hover:border-red-500 transition-colors"
+                                                    className="p-2 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                                                     title="Remove Connection"
                                                 >
-                                                    <Trash2 size={18} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
-                                        </Link>
+                                        </Card>
                                     ))}
                                 </div>
                             )}
@@ -185,9 +184,9 @@ export function ConnectionsPage() {
 
                     {/* TAB: REQUESTS */}
                     {tab === 'REQUESTS' && (
-                        <div className="p-0">
+                        <div className="space-y-4">
                             {requests.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 bg-surface rounded-[2rem] border border-border border-dashed">
                                     <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center text-muted border border-border">
                                         <Inbox size={32} />
                                     </div>
@@ -197,37 +196,40 @@ export function ConnectionsPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-border">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {requests.map((req) => (
-                                        <div key={req.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-background/50 transition-colors">
-                                            <div className="flex items-start space-x-4">
-                                                <div className="w-10 h-10 bg-accent/10 text-accent rounded-full flex items-center justify-center shrink-0 border border-accent/20">
-                                                    <Clock size={18} />
+                                        <Card key={req.id} className="p-6 flex items-center justify-between">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="w-12 h-12 bg-accent/10 text-accent rounded-full flex items-center justify-center shrink-0 border border-accent/20">
+                                                    <Clock size={20} />
                                                 </div>
-                                                <div className="space-y-1">
+                                                <div>
                                                     <div className="text-sm font-bold text-foreground">
-                                                        Request from <span className="opacity-80">{req.senderName}</span>
+                                                        Request from <span className="text-accent">{req.senderName}</span>
                                                     </div>
-                                                    <div className="text-xs text-muted font-medium italic">Sent {new Date(req.createdAt).toLocaleDateString()}</div>
+                                                    <div className="text-xs text-muted font-medium italic mt-1">
+                                                        Sent {new Date(req.createdAt).toLocaleDateString()}
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center space-x-3 pl-14 md:pl-0">
+                                            <div className="flex items-center space-x-2">
                                                 <button
                                                     onClick={() => rejectConnection(req.id)}
-                                                    className="px-4 py-2 bg-surface border border-border text-muted hover:text-red-500 hover:border-red-500/50 text-xs font-bold rounded-lg transition-colors"
+                                                    className="p-2 bg-surface border border-border text-muted hover:text-red-500 hover:border-red-500/50 rounded-xl transition-colors"
+                                                    title="Reject"
                                                 >
-                                                    Reject
+                                                    <X size={20} />
                                                 </button>
                                                 <button
                                                     onClick={() => acceptConnection(req.id)}
-                                                    className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-lg shadow-md shadow-slate-900/10 hover:scale-105 transition-transform flex items-center space-x-2"
+                                                    className="p-2 bg-emerald-500 text-white rounded-xl shadow-md hover:bg-emerald-600 transition-colors"
+                                                    title="Accept"
                                                 >
-                                                    <span>Accept</span>
-                                                    <CheckCircle2 size={14} />
+                                                    <CheckCircle2 size={20} />
                                                 </button>
                                             </div>
-                                        </div>
+                                        </Card>
                                     ))}
                                 </div>
                             )}

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../../app/Layout';
-import { useStore } from '../../services/store';
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpRight, ArrowDownLeft, Medal, Loader2 } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
@@ -104,10 +103,10 @@ export const LeaderboardPage: React.FC = () => {
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-border bg-slate-50/50 dark:bg-slate-900/50">
-                                    <th className="py-5 px-6 text-left text-[10px] font-black text-muted uppercase tracking-widest w-20">Rank</th>
-                                    <th className="py-5 px-6 text-left text-[10px] font-black text-muted uppercase tracking-widest">User</th>
-                                    <th className="py-5 px-6 text-left text-[10px] font-black text-muted uppercase tracking-widest">Institution</th>
-                                    <th className="py-5 px-6 text-right text-[10px] font-black text-muted uppercase tracking-widest">
+                                    <th className="py-5 px-6 text-left text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest w-20">Rank</th>
+                                    <th className="py-5 px-6 text-left text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">User</th>
+                                    <th className="py-5 px-6 text-left text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Institution</th>
+                                    <th className="py-5 px-6 text-right text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">
                                         {activeTab === 'GIVERS' ? 'Helps Given' : 'Helps Received'}
                                     </th>
                                 </tr>
@@ -116,12 +115,12 @@ export const LeaderboardPage: React.FC = () => {
                                 {list?.map((entry, index) => (
                                     <tr 
                                         key={entry.user_id} 
-                                        className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                                        className="group hover:bg-[var(--row-hover-bg)] hover:ring-1 hover:ring-[var(--row-hover-ring)] transition-all duration-200"
                                     >
                                         <td className="py-4 px-6">
                                             <div className={`w-8 h-8 flex items-center justify-center rounded-xl font-black text-sm ${
                                                 index === 0 ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                index === 1 ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400' :
+                                                index === 1 ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' :
                                                 index === 2 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500' :
                                                 'bg-slate-100 dark:bg-slate-800 text-muted'
                                             }`}>

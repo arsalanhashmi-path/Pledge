@@ -8,6 +8,9 @@ export interface ChatMessage {
     content: string;
     created_at: string;
     read_at?: string;
+    message_type?: 'text' | 'proof';
+    attachment_id?: string;
+    proof_data?: any; // Joined receipt data
 }
 
 export const chatService = {
@@ -16,43 +19,85 @@ export const chatService = {
      */
     async fetchMessages(otherUserId: string): Promise<ChatMessage[]> {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return [];
+        if (!user) throw new Error('Not authenticated');
 
+        // We fetch messages and optionally join receipt data if it exists
         const { data, error } = await supabase
             .from('messages')
-            .select('*')
+            .select(`
+                *,
+                proof_data:receipts(*)
+            `)
             .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${user.id})`)
             .order('created_at', { ascending: true });
 
-        if (error) {
-            console.error('Error fetching messages:', error);
-            return [];
-        }
-
+        if (error) throw error;
         return data as ChatMessage[];
     },
 
     /**
-     * Send a message to a recipient.
+     * Send a text message.
      */
-    async sendMessage(recipientId: string, content: string): Promise<{ success: boolean; error?: string }> {
+    async sendMessage(recipientId: string, content: string): Promise<ChatMessage> {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) throw new Error('Not authenticated');
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('messages')
             .insert({
                 sender_id: user.id,
                 recipient_id: recipientId,
-                content: content.trim()
-            });
+                content: content,
+                message_type: 'text'
+            })
+            .select()
+            .single();
 
-        if (error) {
-            console.error('Error sending message:', error);
-            return { success: false, error: error.message };
-        }
+        if (error) throw error;
+        return data as ChatMessage;
+    },
 
-        return { success: true };
+    /**
+     * Send a proof (receipt) message.
+     */
+    async sendProofMessage(recipientId: string, proofId: string): Promise<ChatMessage> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data, error } = await supabase
+            .from('messages')
+            .insert({
+                sender_id: user.id,
+                recipient_id: recipientId,
+                content: 'Shared a proof', // Fallback text
+                message_type: 'proof',
+                attachment_id: proofId
+            })
+            .select(`
+                *,
+                proof_data:receipts(*)
+            `)
+            .single();
+
+        if (error) throw error;
+        return data as ChatMessage;
+    },
+
+    /**
+     * Fetch user's receipts that can be shared.
+     */
+    async fetchMyProofs(): Promise<any[]> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('*')
+            .eq('from_user_id', user.id)
+            .order('created_at', { ascending: false });
+        
+        if (error) return [];
+        return data;
     },
 
     /**
