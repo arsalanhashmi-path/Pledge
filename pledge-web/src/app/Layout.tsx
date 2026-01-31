@@ -65,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
              
              fetchCounts();
 
-             // Subscribe to new messages
+             // Subscribe to new messages with a UNIQUE channel name so MessagesPage doesn't kill it
              channel = chatService.subscribeToMessages((msg) => {
                  console.log("🔔 Realtime Message Received:", msg);
                  // If the message is intended for us, refresh counts
@@ -73,7 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                      console.log("🔔 It's for me! Refreshing counts...");
                      fetchCounts();
                  }
-             }); 
+             }, 'layout-notifications'); 
              
              console.log("🔔 Subscribed to public:messages channel");
         });

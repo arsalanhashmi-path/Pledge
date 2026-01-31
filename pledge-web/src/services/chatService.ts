@@ -104,9 +104,9 @@ export const chatService = {
      * Subscribe to real-time message updates.
      * @param onMessage Callback function when a new message is received (inserted).
      */
-    subscribeToMessages(onMessage: (msg: ChatMessage) => void): RealtimeChannel {
+    subscribeToMessages(onMessage: (msg: ChatMessage) => void, channelName: string = 'public:messages'): RealtimeChannel {
         return supabase
-            .channel('public:messages')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'messages' },
