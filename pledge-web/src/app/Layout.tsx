@@ -51,6 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
     const { currentUser, signOut, receipts, connections, totalUnreadMessages } = useStore();
+    console.log(`[Layout] Received Total Unread: ${totalUnreadMessages}`);
     const [showToast, setShowToast] = React.useState(false);
     
     // Subscription handled globally in StoreProvider

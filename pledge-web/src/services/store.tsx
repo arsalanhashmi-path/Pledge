@@ -594,7 +594,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const totalUnreadMessages = React.useMemo(() => {
-        return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+        const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+        console.log(`[Store] Calc Total Unread: ${total}`, unreadCounts);
+        return total;
     }, [unreadCounts]);
 
     const value = useMemo(() => ({
