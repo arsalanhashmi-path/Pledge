@@ -242,9 +242,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (!isForMe && !isFromMe) return;
 
             // If currently viewing this chat, ignore increments
-            if (isForMe && msg.sender_id === activeConversationIdRef.current) {
-                return;
-            }
+            // if (isForMe && msg.sender_id === activeConversationIdRef.current) {
+            //    return;
+            // }
 
             if (eventType === 'INSERT') {
                 if (isForMe) {
