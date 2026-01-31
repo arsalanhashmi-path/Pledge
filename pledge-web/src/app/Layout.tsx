@@ -105,6 +105,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     return (
         <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
             {/* Top Mobile / Desktop Header */}
+            {/* DEBUG OVERLAY */}
+            <div className="fixed top-20 left-4 z-[9999] bg-black/80 text-white p-2 text-xs font-mono rounded pointer-events-none">
+                LAYOUT DEBUG: Count={unreadMessagesCount}
+                <br/>
+                Raw: {JSON.stringify(unreadCounts)}
+            </div>
             <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-6 bg-surface shrink-0 z-20">
                 <div className="flex items-center space-x-2">
                     <div className="w-6 h-6 rounded-full border-2 border-foreground bg-transparent flex items-center justify-center">
