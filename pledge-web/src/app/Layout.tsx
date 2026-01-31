@@ -81,6 +81,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     ).length;
 
     const unreadMessagesCount = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    
+    // Debug Log
+    React.useEffect(() => {
+        console.log(`[Layout] Unread Messages Count Updated: ${unreadMessagesCount}`, unreadCounts);
+    }, [unreadMessagesCount, unreadCounts]);
 
     const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
 

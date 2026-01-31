@@ -3,6 +3,9 @@ import type { Receipt, User, Connection } from '../types';
 import { ReceiptStatus } from '../types';
 import { INITIAL_USERS, API_BASE_URL } from '../constants'; // Fallback
 import { supabase } from './supabaseClient';
+import { chatService } from './chatService';
+
+
 
 interface StoreContextType {
     receipts: Receipt[];
@@ -209,7 +212,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [activeConversationId]);
 
     const refreshUnreadCounts = React.useCallback(async () => {
-        const { chatService } = await import('./chatService');
         const counts = await chatService.getUnreadCounts();
         // Force active conversation to 0
         if (activeConversationIdRef.current) {
@@ -229,42 +231,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Centralized Realtime Subscription
     useEffect(() => {
         let channel: any;
-        let isMounted = true;
 
         if (!currentUser) return;
 
-        import('./chatService').then(({ chatService }) => {
-            if (!isMounted) return;
+        // Subscribe globally
+        channel = chatService.subscribeToMessages((msg, eventType) => {
+            const isForMe = msg.recipient_id === currentUser.id;
+            const isFromMe = msg.sender_id === currentUser.id;
 
-            // Subscribe globally
-            channel = chatService.subscribeToMessages((msg, eventType) => {
-                const isForMe = msg.recipient_id === currentUser.id;
-                const isFromMe = msg.sender_id === currentUser.id;
+            if (!isForMe && !isFromMe) return;
 
-                if (!isForMe && !isFromMe) return;
+            // If currently viewing this chat, ignore increments
+            if (isForMe && msg.sender_id === activeConversationIdRef.current) {
+                return;
+            }
 
-                // If currently viewing this chat, ignore increments
-                if (isForMe && msg.sender_id === activeConversationIdRef.current) {
-                    return;
-                }
-
-                if (eventType === 'INSERT') {
-                    if (isForMe) {
-                        // Optimistic Increment
-                        setUnreadCounts(prev => ({
+            if (eventType === 'INSERT') {
+                if (isForMe) {
+                    // Optimistic Increment
+                    setUnreadCounts(prev => {
+                        const newCount = (prev[msg.sender_id] || 0) + 1;
+                        return {
                             ...prev,
-                            [msg.sender_id]: (prev[msg.sender_id] || 0) + 1
-                        }));
-                    }
-                } else {
-                    // UPDATE or DELETE -> Refresh to be safe
-                    refreshUnreadCounts();
+                            [msg.sender_id]: newCount
+                        };
+                    });
                 }
-            }, 'store-global-listener');
-        });
+            } else {
+                // UPDATE or DELETE -> Refresh to be safe
+                refreshUnreadCounts();
+            }
+        }, 'store-global-listener');
 
         return () => {
-             isMounted = false;
              if (channel) supabase.removeChannel(channel);
         };
     }, [currentUser, refreshUnreadCounts]); // Stable dependencies
