@@ -199,18 +199,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     };
 
-    const refreshUnreadCounts = async () => {
+    const refreshUnreadCounts = React.useCallback(async () => {
         const { chatService } = await import('./chatService');
         const counts = await chatService.getUnreadCounts();
         setUnreadCounts(counts);
-    };
+    }, []);
 
-    const setUnreadCount = (userId: string, count: number) => {
+    const setUnreadCount = React.useCallback((userId: string, count: number) => {
         setUnreadCounts(prev => ({
             ...prev,
             [userId]: count
         }));
-    };
+    }, []);
 
     useEffect(() => {
         // Initial fetch
@@ -510,7 +510,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
-        unreadCounts
+        unreadCounts, setUnreadCount, refreshUnreadCounts
     ]);
 
     return (

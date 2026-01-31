@@ -168,7 +168,7 @@ export const MessagesPage: React.FC = () => {
                 // Actually we should mark read here if we see it live
                 if (newMsg.sender_id !== myId) {
                      chatService.markThreadRead(newMsg.sender_id);
-                     // setUnreadCount(newMsg.sender_id, 0); // Already handled by selection effect? No, safe to do here too if we want extra safety.
+                     setUnreadCount(newMsg.sender_id, 0); 
                 }
 
                 scrollToBottom();
