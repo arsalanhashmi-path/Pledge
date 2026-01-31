@@ -26,6 +26,7 @@ interface StoreContextType {
     completeStudentOnboarding: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
     getInferredIdentity: () => Promise<{ success: boolean; identity?: any; error?: string }>;
     unreadCounts: { [key: string]: number };
+    totalUnreadMessages: number;
     setUnreadCount: (userId: string, count: number) => void;
     refreshUnreadCounts: () => Promise<void>;
     setActiveConversationId: (id: string | null) => void;
@@ -592,18 +593,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     };
 
+    const totalUnreadMessages = React.useMemo(() => {
+        return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    }, [unreadCounts]);
+
     const value = useMemo(() => ({
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
-        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId
+        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId,
+        totalUnreadMessages
     }), [
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
-        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId
+        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId,
+        totalUnreadMessages
     ]);
 
     return (

@@ -50,7 +50,7 @@ const NavItem = ({ to, icon: Icon, label, active, onClick, className, badge }: {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
-    const { currentUser, signOut, receipts, connections, unreadCounts } = useStore();
+    const { currentUser, signOut, receipts, connections, totalUnreadMessages } = useStore();
     const [showToast, setShowToast] = React.useState(false);
     
     // Subscription handled globally in StoreProvider
@@ -80,10 +80,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         !c.accepted && c.requested_by !== currentUser?.id
     ).length;
 
-    const unreadMessagesCount = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    const unreadMessagesCount = totalUnreadMessages;
     
-
-
     const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
 
     const [hasBeenOnboarded, setHasBeenOnboarded] = React.useState(false);
