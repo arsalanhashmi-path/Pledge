@@ -4,7 +4,9 @@ import { ReceiptStatus } from './types';
 export const CURRENT_USER_ID = 'u-me';
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-export const API_BASE_URL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+// Ensure protocol is present
+const validUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+export const API_BASE_URL = validUrl.endsWith('/') ? validUrl.slice(0, -1) : validUrl;
 
 export const INITIAL_USERS: User[] = [
     { id: 'u-me', email: 'me@example.com', first_name: 'Me', last_name: '', institution: 'Pledge', handle: '@me', maskedName: 'Me' },
