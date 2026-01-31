@@ -3,13 +3,16 @@ import { ReceiptStatus } from './types';
 
 export const CURRENT_USER_ID = 'u-me';
 
-// Using stable backend URL as requested to resolve 404s from dead preview deployments
-const rawUrl = 'https://pledge-backend-chi.vercel.app';
-// const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Backend URL - prefer environment variable, fall back to stable production URL
+const rawUrl = import.meta.env.VITE_API_URL || 'https://pledge-backend-chi.vercel.app';
 
-// Ensure protocol is present
-const validUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
-export const API_BASE_URL = validUrl.endsWith('/') ? validUrl.slice(0, -1) : validUrl;
+// Ensure protocol is present (handles env vars without https://)
+const withProtocol = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') 
+    ? rawUrl 
+    : `https://${rawUrl}`;
+
+// Remove trailing slash if present
+export const API_BASE_URL = withProtocol.endsWith('/') ? withProtocol.slice(0, -1) : withProtocol;
 
 export const INITIAL_USERS: User[] = [
     { id: 'u-me', email: 'me@example.com', first_name: 'Me', last_name: '', institution: 'Pledge', handle: '@me', maskedName: 'Me' },
