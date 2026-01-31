@@ -82,10 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const unreadMessagesCount = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
     
-    // Debug Log
-    React.useEffect(() => {
-        console.log(`[Layout] Unread Messages Count Updated: ${unreadMessagesCount}`, unreadCounts);
-    }, [unreadMessagesCount, unreadCounts]);
+
 
     const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
 
@@ -176,7 +173,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <NavItem to="/receipts" icon={Receipt} label="Receipts" badge={pendingReceiptsCount} active={path === '/receipts'} />
                     <NavItem to="/institutions" icon={Landmark} label="Institutions" active={path === '/institutions'} />
                     <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" active={path === '/leaderboard'} />
-                    <NavItem to="/messages" icon={MessageCircle} label={`Messages (${unreadMessagesCount})`} badge={unreadMessagesCount} active={path === '/messages'} />
+                    <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={unreadMessagesCount} active={path === '/messages'} />
                     <NavItem to="/notifications" icon={Bell} label="Notifications" badge={totalNotifications} active={path === '/notifications'} />
                     <NavItem to="/create" icon={PlusCircle} label="Create Proof" active={path === '/create'} />
                     <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />

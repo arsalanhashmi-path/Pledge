@@ -45,6 +45,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const lastFetchRef = React.useRef<number>(0);
 
+    const fetchReceipts = async (userId: string, email: string) => {
+        const { data: receiptsData, error: receiptsError } = await supabase
+            .from('receipts')
+            .select('*')
+            .or(`from_user_id.eq.${userId},recipient_email.eq.${email}`)
+            .order('created_at', { ascending: false });
+
+        if (receiptsError) console.error("Error fetching receipts:", receiptsError);
+
+        const mappedReceipts: Receipt[] = (receiptsData || []).map((r: any) => ({
+            id: r.id,
+            from_user_id: r.from_user_id,
+            to_user_id: r.to_user_id,
+            recipient_email: r.recipient_email,
+            connection_id: r.connection_id,
+            tags: r.tags || [],
+            description: r.description,
+            is_public: r.is_public,
+            status: r.status as ReceiptStatus,
+            created_at: r.created_at,
+            accepted_at: r.accepted_at,
+            accepted_by_user_id: r.accepted_by_user_id
+        }));
+        setReceipts(mappedReceipts);
+        return mappedReceipts;
+    };
+
+    const fetchConnections = async () => {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return [];
+        
+        try {
+            const connRes = await fetch(`${API_BASE_URL}/api/connections`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const connJson = await connRes.json();
+            if (connJson.success) {
+                setConnections(connJson.data);
+                return connJson.data;
+            }
+        } catch (e) {
+            console.error("Error fetching connections", e);
+        }
+        return [];
+    };
+
     const fetchData = async (options: { silent?: boolean; force?: boolean } = {}) => {
         const now = Date.now();
         // Debounce: If called within 2 seconds, skip unless forced
@@ -94,7 +140,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     created_at: myProfile.created_at
                 });
             } else {
-                // Fallback for partially onboarded users
+                // Fallback
                 setCurrentUser({
                     id: authUser.id,
                     email: authUser.email || '',
@@ -106,74 +152,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 });
             }
 
-            // 2. Fetch Receipts
-            const myEmail = authUser.email?.toLowerCase();
-            const { data: receiptsData, error: receiptsError } = await supabase
-                .from('receipts')
-                .select('*')
-                .or(`from_user_id.eq.${authUser.id},recipient_email.eq.${myEmail}`)
-                .order('created_at', { ascending: false });
+            // 2. Fetch Receipts & Connections
+            const myEmail = authUser.email?.toLowerCase() || '';
+            const [receiptsResults, connectionsResults] = await Promise.all([
+                fetchReceipts(authUser.id, myEmail),
+                fetchConnections()
+            ]);
 
-            if (receiptsError) {
-                console.error("Error fetching receipts:", receiptsError);
-            }
-
-            const mappedReceipts: Receipt[] = (receiptsData || []).map((r: any) => ({
-                id: r.id,
-                from_user_id: r.from_user_id,
-                to_user_id: r.to_user_id,
-                recipient_email: r.recipient_email,
-                connection_id: r.connection_id,
-                tags: r.tags || [],
-                description: r.description,
-                is_public: r.is_public,
-                status: r.status as ReceiptStatus,
-                created_at: r.created_at,
-                accepted_at: r.accepted_at,
-                accepted_by_user_id: r.accepted_by_user_id
-            }));
-            setReceipts(mappedReceipts);
-
-            // 3. Fetch Connections (API)
-            const token = (await supabase.auth.getSession()).data.session?.access_token;
-            let conns: Connection[] = [];
-            
-            if (token) {
-                 const connRes = await fetch(`${API_BASE_URL}/api/connections`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const connJson = await connRes.json();
-                if (connJson.success) {
-                    conns = connJson.data;
-                }
-            }
-            setConnections(conns);
-
-            // 4. Fetch Related Profiles (from both connections and receipts)
+            // 4. Fetch Related Profiles (Optimization: only fetch new ones?)
+            // For simplicity, we keep the existing logic but using the results
             const relatedIds = new Set<string>();
             relatedIds.add(authUser.id);
-            conns.forEach(c => {
+            connectionsResults.forEach((c: any) => {
                 relatedIds.add(c.low_id);
                 relatedIds.add(c.high_id);
             });
-            mappedReceipts.forEach(r => {
+            receiptsResults.forEach((r: any) => {
                 relatedIds.add(r.from_user_id);
                 if (r.to_user_id) relatedIds.add(r.to_user_id);
             });
 
-            let allUsers: User[] = [];
             if (relatedIds.size > 0) {
                 const { data: profiles, error: profilesError } = await supabase
                     .from('public_profiles')
                     .select('*')
                     .in('user_id', Array.from(relatedIds));
 
-                if (profilesError) {
-                    console.error("Error fetching profiles:", profilesError);
-                }
+                if (profilesError) console.error("Error fetching profiles:", profilesError);
 
                 if (profiles) {
-                    allUsers = profiles.map((p: any) => ({
+                    const allUsers = profiles.map((p: any) => ({
                         id: p.user_id,
                         email: p.email,
                         first_name: p.first_name,
@@ -187,14 +195,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         handle: p.first_name,
                         maskedName: `${p.first_name} ${p.last_name || ''}`.trim()
                     }));
+                    setUsers(allUsers);
                 }
             }
-            setUsers(allUsers);
             
             // 5. Fetch Unread Counts
-            import('./chatService').then(({ chatService }) => {
-                chatService.getUnreadCounts().then(setUnreadCounts);
-            });
+            refreshUnreadCounts();
 
         } catch (err) {
             console.error("fetchData error:", err);
@@ -234,14 +240,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (!currentUser) return;
 
-        // Subscribe globally
+        // Subscribe globally to Messages
         channel = chatService.subscribeToMessages((msg, eventType) => {
             const isForMe = msg.recipient_id === currentUser.id;
             const isFromMe = msg.sender_id === currentUser.id;
 
             if (!isForMe && !isFromMe) return;
 
-            // If currently viewing this chat, ignore increments
+             // If currently viewing this chat, ignore increments
             // if (isForMe && msg.sender_id === activeConversationIdRef.current) {
             //    return;
             // }
@@ -263,8 +269,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         }, 'store-global-listener');
 
+        // Subscribe to Receipts
+        const receiptsChannel = supabase
+            .channel('store-receipts-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'receipts' },
+                (payload) => {
+                    const r = payload.new as any || payload.old as any;
+                    // Check if relevant to me
+                    if (r && (r.from_user_id === currentUser.id || r.to_user_id === currentUser.id || r.recipient_email === currentUser.email)) {
+                         fetchReceipts(currentUser.id, currentUser.email || '');
+                    }
+                }
+            )
+            .subscribe();
+
+        // Subscribe to Connections
+        const connectionsChannel = supabase
+            .channel('store-connections-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'connections' },
+                () => {
+                    // Connections table changes; refetch to be safe
+                    fetchConnections();
+                }
+            )
+            .subscribe();
+
         return () => {
              if (channel) supabase.removeChannel(channel);
+             if (receiptsChannel) supabase.removeChannel(receiptsChannel);
+             if (connectionsChannel) supabase.removeChannel(connectionsChannel);
         };
     }, [currentUser, refreshUnreadCounts]); // Stable dependencies
 
