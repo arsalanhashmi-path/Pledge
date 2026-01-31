@@ -104,14 +104,25 @@ export const chatService = {
      * Subscribe to real-time message updates.
      * @param onMessage Callback function when a new message is received (inserted).
      */
-    subscribeToMessages(onMessage: (msg: ChatMessage) => void, channelName: string = 'public:messages'): RealtimeChannel {
+    subscribeToMessages(onMessage: (msg: ChatMessage, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void, channelName: string = 'public:messages'): RealtimeChannel {
         return supabase
             .channel(channelName)
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'messages' },
+                { event: '*', schema: 'public', table: 'messages' },
                 (payload) => {
-                    onMessage(payload.new as ChatMessage);
+                    if (payload.eventType === 'DELETE') {
+                        // Handle delete if needed, for now we might pass null or just the old record if we had it, 
+                        // but the signature expects ChatMessage. 
+                        // For simplicity in this refactor, let's just cast payload.old if it's a delete, 
+                        // or better yet, let's only pass .new if it exists.
+                        // However, existing consumers expect a msg.
+                        // Let's coerce payload.new for INSERT/UPDATE. 
+                        // For DELETE, payload.new is null. payload.old has the id.
+                        if (payload.old) onMessage(payload.old as ChatMessage, 'DELETE');
+                        return;
+                    }
+                    onMessage(payload.new as ChatMessage, payload.eventType as 'INSERT' | 'UPDATE');
                 }
             )
             .subscribe((status) => {

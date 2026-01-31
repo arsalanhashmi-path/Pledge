@@ -22,6 +22,9 @@ interface StoreContextType {
     deleteReceipt: (receiptId: string) => Promise<{ success: boolean; message: string }>;
     completeStudentOnboarding: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
     getInferredIdentity: () => Promise<{ success: boolean; identity?: any; error?: string }>;
+    unreadCounts: { [key: string]: number };
+    setUnreadCount: (userId: string, count: number) => void;
+    refreshUnreadCounts: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -32,6 +35,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [users, setUsers] = useState<User[]>(INITIAL_USERS);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
 
     // Helper removed as logic moved to backend
 
@@ -182,13 +186,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
             }
             setUsers(allUsers);
-
+            
+            // 5. Fetch Unread Counts
+            import('./chatService').then(({ chatService }) => {
+                chatService.getUnreadCounts().then(setUnreadCounts);
+            });
 
         } catch (err) {
             console.error("fetchData error:", err);
         } finally {
             setLoading(false);
         }
+    };
+
+    const refreshUnreadCounts = async () => {
+        const { chatService } = await import('./chatService');
+        const counts = await chatService.getUnreadCounts();
+        setUnreadCounts(counts);
+    };
+
+    const setUnreadCount = (userId: string, count: number) => {
+        setUnreadCounts(prev => ({
+            ...prev,
+            [userId]: count
+        }));
     };
 
     useEffect(() => {
@@ -482,12 +503,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
-        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity
+        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
+        unreadCounts, setUnreadCount, refreshUnreadCounts
     }), [
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
-        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity
+        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
+        unreadCounts
     ]);
 
     return (

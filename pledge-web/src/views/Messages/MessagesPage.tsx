@@ -56,13 +56,13 @@ const ProofDetailsModal = ({ proofId, onClose }: { proofId: string | null; onClo
 };
 
 export const MessagesPage: React.FC = () => {
-    const { connections, users, loading } = useStore();
+    const { connections, users, loading, unreadCounts, setUnreadCount } = useStore();
     const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [search, setSearch] = useState('');
-    const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+
     const [showProofPicker, setShowProofPicker] = useState(false);
     
     // Auth check state
@@ -81,12 +81,7 @@ export const MessagesPage: React.FC = () => {
         });
     }, []);
 
-    // Also fetch unread counts on mount (and periodically?)
-    useEffect(() => {
-        if (myId) {
-            chatService.getUnreadCounts().then(setUnreadCounts);
-        }
-    }, [myId]);
+
 
     // Filter Accepted Connections
     const activeConnections = useMemo(() => {
@@ -112,8 +107,8 @@ export const MessagesPage: React.FC = () => {
         if (selectedConnectionId) {
              const connection = activeConnections.find(c => c.id === selectedConnectionId);
              if (connection) {
-                 // Clear local badge immediately
-                 setUnreadCounts(prev => ({ ...prev, [connection.otherId]: 0 }));
+                 // Clear local badge immediately (global store)
+                 setUnreadCount(connection.otherId, 0);
                  // Sync with server
                  chatService.markThreadRead(connection.otherId);
              }
@@ -148,7 +143,17 @@ export const MessagesPage: React.FC = () => {
     useEffect(() => {
         if (!myId) return;
 
-        const sub = chatService.subscribeToMessages((newMsg) => {
+        const sub = chatService.subscribeToMessages((newMsg, eventType) => {
+            if (eventType === 'DELETE') return;
+
+            // Handle Updates (e.g. read status changes)
+            if (eventType === 'UPDATE') {
+                // Update message in list if present
+                setMessages(prev => prev.map(m => m.id === newMsg.id ? newMsg : m));
+                return;
+            }
+
+            // Handle INSERTs
             const connection = activeConnections.find(c => c.id === selectedConnectionId);
             const isRelatedToSelection = connection && (newMsg.sender_id === connection.otherId || newMsg.sender_id === myId);
 
@@ -159,19 +164,16 @@ export const MessagesPage: React.FC = () => {
                     return [...prev, newMsg];
                 });
                 
-                // If it came from the other person while we are looking at it, mark read instantly?
+                // If it came from the other person while we are looking at it, mark read instantly (Layout/service handles db update)
+                // Actually we should mark read here if we see it live
                 if (newMsg.sender_id !== myId) {
                      chatService.markThreadRead(newMsg.sender_id);
+                     // setUnreadCount(newMsg.sender_id, 0); // Already handled by selection effect? No, safe to do here too if we want extra safety.
                 }
 
                 scrollToBottom();
-            } else if (newMsg.sender_id !== myId) {
-                // Background message -> Increment badge
-                setUnreadCounts(prev => ({
-                    ...prev,
-                    [newMsg.sender_id]: (prev[newMsg.sender_id] || 0) + 1
-                }));
-            }
+            } 
+            // Background messages are handled by Layout.tsx/Store for badges
         });
 
         return () => {

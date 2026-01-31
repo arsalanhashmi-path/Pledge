@@ -50,28 +50,25 @@ const NavItem = ({ to, icon: Icon, label, active, onClick, className, badge }: {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
-    const { currentUser, signOut, receipts, connections } = useStore();
-    const [unreadCounts, setUnreadCounts] = React.useState<{ [key: string]: number }>({});
+    const { currentUser, signOut, receipts, connections, unreadCounts, refreshUnreadCounts } = useStore();
     const [showToast, setShowToast] = React.useState(false);
     
-    // Fetch unread counts dynamically
-    // Fetch unread counts dynamically & subscribe to changes
+    // Subscribe to changes
     React.useEffect(() => {
         let channel: any;
 
-        // Initial fetch
-        import('../services/chatService').then(({ chatService }) => {
-             const fetchCounts = () => chatService.getUnreadCounts().then(setUnreadCounts);
-             
-             fetchCounts();
+        // Initial fetch handled by Store, but we might want to ensure it's fresh? Store does it on auth change.
+        // We just handle realtime updates here.
 
+        import('../services/chatService').then(({ chatService }) => {
              // Subscribe to new messages with a UNIQUE channel name so MessagesPage doesn't kill it
-             channel = chatService.subscribeToMessages((msg) => {
-                 console.log("🔔 Realtime Message Received:", msg);
-                 // If the message is intended for us, refresh counts
+             channel = chatService.subscribeToMessages((msg, eventType) => {
+                 console.log(`🔔 Realtime Message ${eventType}:`, msg);
+                 
+                 // If the message is intended for us (INSERT or UPDATE), refresh counts
                  if (msg.recipient_id === currentUser?.id) {
                      console.log("🔔 It's for me! Refreshing counts...");
-                     fetchCounts();
+                     refreshUnreadCounts();
                  }
              }, 'layout-notifications'); 
              
@@ -81,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         return () => {
             if (channel) supabase.removeChannel(channel);
         };
-    }, [currentUser]);
+    }, [currentUser, refreshUnreadCounts]);
 
     const handleSignOut = async (e?: React.MouseEvent) => {
         e?.preventDefault();
