@@ -25,6 +25,7 @@ interface StoreContextType {
     unreadCounts: { [key: string]: number };
     setUnreadCount: (userId: string, count: number) => void;
     refreshUnreadCounts: () => Promise<void>;
+    setActiveConversationId: (id: string | null) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -199,18 +200,63 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     };
 
+    const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
     const refreshUnreadCounts = React.useCallback(async () => {
         const { chatService } = await import('./chatService');
         const counts = await chatService.getUnreadCounts();
+        // Force active conversation to 0
+        if (activeConversationId) {
+            counts[activeConversationId] = 0;
+        }
         setUnreadCounts(counts);
-    }, []);
+    }, [activeConversationId]); // Re-create if active convo changes
 
     const setUnreadCount = React.useCallback((userId: string, count: number) => {
+        if (userId === activeConversationId) return; // Don't set non-zero for active
         setUnreadCounts(prev => ({
             ...prev,
             [userId]: count
         }));
-    }, []);
+    }, [activeConversationId]);
+
+    // Centralized Realtime Subscription
+    useEffect(() => {
+        let channel: any;
+        if (!currentUser) return;
+
+        import('./chatService').then(({ chatService }) => {
+            // Subscribe globally
+            channel = chatService.subscribeToMessages((msg, eventType) => {
+                const isForMe = msg.recipient_id === currentUser.id;
+                const isFromMe = msg.sender_id === currentUser.id;
+
+                if (!isForMe && !isFromMe) return;
+
+                // If currently viewing this chat, ignore increments
+                if (isForMe && msg.sender_id === activeConversationId) {
+                    return;
+                }
+
+                if (eventType === 'INSERT') {
+                    if (isForMe) {
+                        // Optimistic Increment
+                        setUnreadCounts(prev => ({
+                            ...prev,
+                            [msg.sender_id]: (prev[msg.sender_id] || 0) + 1
+                        }));
+                    }
+                } else {
+                    // UPDATE or DELETE -> Refresh to be safe
+                    refreshUnreadCounts();
+                }
+            }, 'store-global-listener');
+        });
+
+        return () => {
+             if (channel) supabase.removeChannel(channel);
+        };
+    }, [currentUser, activeConversationId, refreshUnreadCounts]); // Re-sub if active convo changes (to close over new ID)
 
     useEffect(() => {
         // Initial fetch
@@ -219,7 +265,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (session?.user) {
                 if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-                    // Debounce will handle rapid fires
                     fetchData();
                 } else if (event === 'TOKEN_REFRESHED') {
                     fetchData({ silent: true });
@@ -229,6 +274,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 setConnections([]);
                 setCurrentUser(null);
                 setUsers([]);
+                setUnreadCounts({});
             }
         });
         return () => subscription.unsubscribe();
@@ -504,13 +550,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
-        unreadCounts, setUnreadCount, refreshUnreadCounts
+        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId
     }), [
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
         rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity,
-        unreadCounts, setUnreadCount, refreshUnreadCounts
+        unreadCounts, setUnreadCount, refreshUnreadCounts, setActiveConversationId
     ]);
 
     return (

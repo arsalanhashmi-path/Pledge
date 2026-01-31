@@ -50,36 +50,11 @@ const NavItem = ({ to, icon: Icon, label, active, onClick, className, badge }: {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
-    const { currentUser, signOut, receipts, connections, unreadCounts, refreshUnreadCounts } = useStore();
+    const { currentUser, signOut, receipts, connections, unreadCounts } = useStore();
     const [showToast, setShowToast] = React.useState(false);
     
-    // Subscribe to changes
-    React.useEffect(() => {
-        let channel: any;
-
-        // Initial fetch handled by Store, but we might want to ensure it's fresh? Store does it on auth change.
-        // We just handle realtime updates here.
-
-        import('../services/chatService').then(({ chatService }) => {
-             // Subscribe to new messages with a UNIQUE channel name so MessagesPage doesn't kill it
-             channel = chatService.subscribeToMessages((msg, eventType) => {
-                 console.log(`🔔 Realtime Message ${eventType}:`, msg);
-                 
-                 // If the message is intended for us (INSERT or UPDATE), refresh counts
-                 if (msg.recipient_id === currentUser?.id) {
-                     console.log("🔔 It's for me! Refreshing counts...");
-                     refreshUnreadCounts();
-                 }
-             }, 'layout-notifications'); 
-             
-             console.log("🔔 Subscribed to public:messages channel");
-        });
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, [currentUser, refreshUnreadCounts]);
-
+    // Subscription handled globally in StoreProvider
+    
     const handleSignOut = async (e?: React.MouseEvent) => {
         e?.preventDefault();
         e?.stopPropagation();

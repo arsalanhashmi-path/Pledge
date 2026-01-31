@@ -56,7 +56,7 @@ const ProofDetailsModal = ({ proofId, onClose }: { proofId: string | null; onClo
 };
 
 export const MessagesPage: React.FC = () => {
-    const { connections, users, loading, unreadCounts, setUnreadCount } = useStore();
+    const { connections, users, loading, unreadCounts, setUnreadCount, setActiveConversationId } = useStore();
     const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
@@ -81,8 +81,6 @@ export const MessagesPage: React.FC = () => {
         });
     }, []);
 
-
-
     // Filter Accepted Connections
     const activeConnections = useMemo(() => {
         return connections
@@ -102,18 +100,27 @@ export const MessagesPage: React.FC = () => {
             });
     }, [connections, users, myId, search]);
 
-    // Mark Read when selecting a connection
+    // Mark Read & Set Active when selecting a connection
     useEffect(() => {
         if (selectedConnectionId) {
              const connection = activeConnections.find(c => c.id === selectedConnectionId);
              if (connection) {
+                 // Tell Store we are viewing this chat
+                 setActiveConversationId(connection.otherId);
+                 
                  // Clear local badge immediately (global store)
                  setUnreadCount(connection.otherId, 0);
                  // Sync with server
                  chatService.markThreadRead(connection.otherId);
              }
+        } else {
+            setActiveConversationId(null);
         }
-    }, [selectedConnectionId, activeConnections]);
+        
+        return () => {
+            setActiveConversationId(null);
+        };
+    }, [selectedConnectionId, activeConnections, setActiveConversationId, setUnreadCount]);
 
 
     // Fetch Messages when connection selected
