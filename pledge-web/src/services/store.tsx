@@ -271,6 +271,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'receipts' },
                 (payload) => {
+                    console.log('[Realtime] Receipts event:', payload.eventType, payload);
                     const newRecord = payload.new as any;
                     const oldRecord = payload.old as any;
                     
@@ -304,7 +305,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('[Realtime] Receipts subscription status:', status);
+            });
 
         // Subscribe to Connections
         const connectionsChannel = supabase
@@ -313,6 +316,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'connections' },
                 (payload) => {
+                    console.log('[Realtime] Connections event:', payload.eventType, payload);
                     const newRecord = payload.new as any;
                     const oldRecord = payload.old as any;
 
@@ -328,7 +332,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('[Realtime] Connections subscription status:', status);
+            });
 
         return () => {
              if (channel) supabase.removeChannel(channel);

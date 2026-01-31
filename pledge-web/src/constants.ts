@@ -6,13 +6,21 @@ export const CURRENT_USER_ID = 'u-me';
 // Backend URL - prefer environment variable, fall back to stable production URL
 const rawUrl = import.meta.env.VITE_API_URL || 'https://pledge-backend-chi.vercel.app';
 
+// DEBUG: Log the raw URL value
+console.log('[DEBUG] VITE_API_URL env:', import.meta.env.VITE_API_URL);
+console.log('[DEBUG] rawUrl:', rawUrl);
+
 // Ensure protocol is present (handles env vars without https://)
 const withProtocol = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') 
     ? rawUrl 
     : `https://${rawUrl}`;
 
+console.log('[DEBUG] withProtocol:', withProtocol);
+
 // Remove trailing slash if present
 export const API_BASE_URL = withProtocol.endsWith('/') ? withProtocol.slice(0, -1) : withProtocol;
+
+console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
 
 export const INITIAL_USERS: User[] = [
     { id: 'u-me', email: 'me@example.com', first_name: 'Me', last_name: '', institution: 'Pledge', handle: '@me', maskedName: 'Me' },
