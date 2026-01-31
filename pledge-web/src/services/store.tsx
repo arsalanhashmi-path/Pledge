@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import type { Receipt, User, Connection } from '../types';
 import { ReceiptStatus } from '../types';
 import { INITIAL_USERS, API_BASE_URL } from '../constants'; // Fallback
@@ -201,31 +201,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+    const activeConversationIdRef = useRef(activeConversationId);
+
+    // Keep ref in sync
+    useEffect(() => {
+        activeConversationIdRef.current = activeConversationId;
+    }, [activeConversationId]);
 
     const refreshUnreadCounts = React.useCallback(async () => {
         const { chatService } = await import('./chatService');
         const counts = await chatService.getUnreadCounts();
         // Force active conversation to 0
-        if (activeConversationId) {
-            counts[activeConversationId] = 0;
+        if (activeConversationIdRef.current) {
+            counts[activeConversationIdRef.current] = 0;
         }
         setUnreadCounts(counts);
-    }, [activeConversationId]); // Re-create if active convo changes
+    }, []); 
 
     const setUnreadCount = React.useCallback((userId: string, count: number) => {
-        if (userId === activeConversationId) return; // Don't set non-zero for active
+        if (userId === activeConversationIdRef.current) return; // Don't set non-zero for active
         setUnreadCounts(prev => ({
             ...prev,
             [userId]: count
         }));
-    }, [activeConversationId]);
+    }, []);
 
     // Centralized Realtime Subscription
     useEffect(() => {
         let channel: any;
+        let isMounted = true;
+
         if (!currentUser) return;
 
         import('./chatService').then(({ chatService }) => {
+            if (!isMounted) return;
+
             // Subscribe globally
             channel = chatService.subscribeToMessages((msg, eventType) => {
                 const isForMe = msg.recipient_id === currentUser.id;
@@ -234,7 +244,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (!isForMe && !isFromMe) return;
 
                 // If currently viewing this chat, ignore increments
-                if (isForMe && msg.sender_id === activeConversationId) {
+                if (isForMe && msg.sender_id === activeConversationIdRef.current) {
                     return;
                 }
 
@@ -254,9 +264,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         return () => {
+             isMounted = false;
              if (channel) supabase.removeChannel(channel);
         };
-    }, [currentUser, activeConversationId, refreshUnreadCounts]); // Re-sub if active convo changes (to close over new ID)
+    }, [currentUser, refreshUnreadCounts]); // Stable dependencies
 
     useEffect(() => {
         // Initial fetch
