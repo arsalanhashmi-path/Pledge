@@ -67,11 +67,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
              // Subscribe to new messages
              channel = chatService.subscribeToMessages((msg) => {
+                 console.log("🔔 Realtime Message Received:", msg);
                  // If the message is intended for us, refresh counts
                  if (msg.recipient_id === currentUser?.id) {
+                     console.log("🔔 It's for me! Refreshing counts...");
                      fetchCounts();
                  }
-             });
+             }); 
+             
+             console.log("🔔 Subscribed to public:messages channel");
         });
 
         return () => {
