@@ -105,12 +105,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     return (
         <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
             {/* Top Mobile / Desktop Header */}
-            {/* DEBUG OVERLAY */}
-            <div className="fixed top-20 left-4 z-[9999] bg-black/80 text-white p-2 text-xs font-mono rounded pointer-events-none">
-                LAYOUT DEBUG: Count={unreadMessagesCount}
-                <br/>
-                Raw: {JSON.stringify(unreadCounts)}
-            </div>
             <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-6 bg-surface shrink-0 z-20">
                 <div className="flex items-center space-x-2">
                     <div className="w-6 h-6 rounded-full border-2 border-foreground bg-transparent flex items-center justify-center">
@@ -176,14 +170,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </header>
 
             <div className="flex flex-1 overflow-hidden relative">
-                {/* Desktop Sidebar */}
                 <nav className="hidden md:flex w-64 flex-col border-r border-border bg-surface p-4 space-y-2 shrink-0">
                     <NavItem to="/" icon={Home} label="Network" active={path === '/'} />
                     <NavItem to="/connections" icon={Network} label="Connections" badge={pendingConnectionsCount} active={path === '/connections'} />
                     <NavItem to="/receipts" icon={Receipt} label="Receipts" badge={pendingReceiptsCount} active={path === '/receipts'} />
                     <NavItem to="/institutions" icon={Landmark} label="Institutions" active={path === '/institutions'} />
                     <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" active={path === '/leaderboard'} />
-                    <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={unreadMessagesCount} active={path === '/messages'} />
+                    <NavItem to="/messages" icon={MessageCircle} label={`Messages (${unreadMessagesCount})`} badge={unreadMessagesCount} active={path === '/messages'} />
                     <NavItem to="/notifications" icon={Bell} label="Notifications" badge={totalNotifications} active={path === '/notifications'} />
                     <NavItem to="/create" icon={PlusCircle} label="Create Proof" active={path === '/create'} />
                     <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
