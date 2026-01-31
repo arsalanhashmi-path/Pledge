@@ -4,6 +4,7 @@ import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trop
 import { useStore } from '../services/store';
 import { useTheme } from './ThemeProvider';
 import { StudentOnboardingModal } from '../components/StudentOnboardingModal';
+import { supabase } from '../services/supabaseClient';
 
 interface LayoutProps {
     children?: React.ReactNode;
@@ -54,12 +55,29 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const [showToast, setShowToast] = React.useState(false);
     
     // Fetch unread counts dynamically
+    // Fetch unread counts dynamically & subscribe to changes
     React.useEffect(() => {
-        // Dynamic import to avoid circular dependency if any (though chatService uses supabase directly)
+        let channel: any;
+
+        // Initial fetch
         import('../services/chatService').then(({ chatService }) => {
-             chatService.getUnreadCounts().then(setUnreadCounts);
+             const fetchCounts = () => chatService.getUnreadCounts().then(setUnreadCounts);
+             
+             fetchCounts();
+
+             // Subscribe to new messages
+             channel = chatService.subscribeToMessages((msg) => {
+                 // If the message is intended for us, refresh counts
+                 if (msg.recipient_id === currentUser?.id) {
+                     fetchCounts();
+                 }
+             });
         });
-    }, []); // Only on mount. Ideally we'd subscribe, but this is a starter.
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [currentUser]);
 
     const handleSignOut = async (e?: React.MouseEvent) => {
         e?.preventDefault();
