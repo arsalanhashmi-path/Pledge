@@ -248,14 +248,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             if (!isForMe && !isFromMe) return;
 
-             // If currently viewing this chat, ignore increments
-            // if (isForMe && msg.sender_id === activeConversationIdRef.current) {
-            //    return;
-            // }
-
             if (eventType === 'INSERT') {
                 if (isForMe) {
-                    // Optimistic Increment
                     setUnreadCounts(prev => {
                         const newCount = (prev[msg.sender_id] || 0) + 1;
                         return {
@@ -265,7 +259,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     });
                 }
             } else {
-                // UPDATE or DELETE -> Refresh to be safe
+                // UPDATE or DELETE -> Refresh to be safe as logic is complex
                 refreshUnreadCounts();
             }
         }, 'store-global-listener');
@@ -277,10 +271,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'receipts' },
                 (payload) => {
-                    const r = payload.new as any || payload.old as any;
-                    // Check if relevant to me
-                    if (r && (r.from_user_id === currentUser.id || r.to_user_id === currentUser.id || r.recipient_email === currentUser.email)) {
-                         fetchReceipts(currentUser.id, currentUser.email || '');
+                    const newRecord = payload.new as any;
+                    const oldRecord = payload.old as any;
+                    
+                    if (payload.eventType === 'INSERT') {
+                        // Only add if relevant to me
+                        if (newRecord.from_user_id === currentUser.id || newRecord.to_user_id === currentUser.id || newRecord.recipient_email === currentUser.email) {
+                            const mapped: Receipt = {
+                                id: newRecord.id,
+                                from_user_id: newRecord.from_user_id,
+                                to_user_id: newRecord.to_user_id,
+                                recipient_email: newRecord.recipient_email,
+                                connection_id: newRecord.connection_id,
+                                tags: newRecord.tags || [],
+                                description: newRecord.description,
+                                is_public: newRecord.is_public,
+                                status: newRecord.status as ReceiptStatus,
+                                created_at: newRecord.created_at,
+                                accepted_at: newRecord.accepted_at,
+                                accepted_by_user_id: newRecord.accepted_by_user_id
+                            };
+                            setReceipts(prev => [mapped, ...prev]);
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        setReceipts(prev => prev.map(r => r.id === newRecord.id ? {
+                             ...r,
+                             ...newRecord,
+                             tags: newRecord.tags || r.tags // ensure tags not null
+                        } : r));
+                    } else if (payload.eventType === 'DELETE') {
+                        setReceipts(prev => prev.filter(r => r.id !== oldRecord.id));
                     }
                 }
             )
@@ -292,9 +312,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'connections' },
-                () => {
-                    // Connections table changes; refetch to be safe
-                    fetchConnections();
+                (payload) => {
+                    const newRecord = payload.new as any;
+                    const oldRecord = payload.old as any;
+
+                    if (payload.eventType === 'INSERT') {
+                         // Check relevance
+                         if (newRecord.requested_by === currentUser.id || newRecord.requested_to === currentUser.id || newRecord.low_id === currentUser.id || newRecord.high_id === currentUser.id) {
+                             setConnections(prev => [...prev, newRecord]);
+                         }
+                    } else if (payload.eventType === 'UPDATE') {
+                        setConnections(prev => prev.map(c => c.id === newRecord.id ? { ...c, ...newRecord } : c));
+                    } else if (payload.eventType === 'DELETE') {
+                        setConnections(prev => prev.filter(c => c.id !== oldRecord.id));
+                    }
                 }
             )
             .subscribe();

@@ -82,8 +82,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     ).length;
 
     const unreadMessagesCount = totalUnreadMessages;
+
+    // Calculate recent receipt updates (matching NotificationsPage logic)
+    const receiptUpdatesCount = receipts
+        .filter(r => r.from_user_id === currentUser?.id && (r.status === 'ACCEPTED' || r.status === 'REJECTED'))
+        .length;
     
-    const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
+    // We cap it at 5 to match the Notifications Page display limit, preventing notification fatigue
+    const effectiveReceiptUpdatesCount = Math.min(receiptUpdatesCount, 5);
+    
+    const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount + effectiveReceiptUpdatesCount;
 
     const [hasBeenOnboarded, setHasBeenOnboarded] = React.useState(false);
 
