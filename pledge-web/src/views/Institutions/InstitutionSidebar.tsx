@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Search, ArrowRight, ArrowLeft, X, School } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, ArrowRight, ArrowLeft, School } from 'lucide-react';
+
 
 interface Node {
     id: string;

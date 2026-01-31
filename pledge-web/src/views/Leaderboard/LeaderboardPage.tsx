@@ -3,6 +3,7 @@ import { Layout } from '../../app/Layout';
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpRight, ArrowDownLeft, Medal, Loader2 } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
+import { API_BASE_URL } from '../../constants';
 
 interface LeaderboardEntry {
     user_id: string;
@@ -31,7 +32,7 @@ export const LeaderboardPage: React.FC = () => {
                 const { data: { session } } = await supabase.auth.getSession();
                 const token = session?.access_token;
                 
-                const res = await fetch('http://127.0.0.1:5000/api/leaderboard', {
+                const res = await fetch(`${API_BASE_URL}/api/leaderboard`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const json = await res.json();

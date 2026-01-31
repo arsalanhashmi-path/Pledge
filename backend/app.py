@@ -5,6 +5,7 @@ import os
 from supabase import create_client
 from datetime import datetime, timezone
 from middleware import authenticate_user
+from utils.student_identity import infer_student_identity
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,6 +39,17 @@ def me():
         'aud': g.user.aud
     })
 
+@app.route('/api/auth/verify-student', methods=['GET'])
+@authenticate_user
+def verify_student():
+    try:
+        identity = infer_student_identity(g.user.email)
+        return jsonify({'success': True, 'identity': identity}), 200
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 403
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/onboarding', methods=['POST'])
 @authenticate_user
 def onboarding():
@@ -48,9 +60,18 @@ def onboarding():
 
         first_name = data.get('first_name')
         last_name = data.get('last_name')
-        institution = data.get('institution')
+        
+        # Student specific fields
+        institution_id = data.get('institution_id')
+        campus_code = data.get('campus_code')
+        batch_year = data.get('batch_year')
+        roll_number = data.get('roll_number')
+        major = data.get('major')
+        is_hostelite = data.get('is_hostelite', False)
+        societies = data.get('societies', [])
+        ghost_mode = data.get('ghost_mode', False)
 
-        if not first_name or not last_name or not institution:
+        if not first_name or not last_name or not institution_id:
             return jsonify({'error': 'Missing required fields'}), 400
 
         referrer_id = data.get('referrer_id')
@@ -62,7 +83,15 @@ def onboarding():
             'email': g.user.email,
             'first_name': first_name,
             'last_name': last_name,
-            'institution': institution
+            'institution': institution_id, # Keep legacy field aligned for now
+            'institution_id': institution_id,
+            'campus_code': campus_code,
+            'batch_year': batch_year,
+            'roll_number': roll_number,
+            'major': major,
+            'is_hostelite': is_hostelite,
+            'societies': societies,
+            'ghost_mode': ghost_mode
         }
 
         # Perform upsert

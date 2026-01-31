@@ -14,6 +14,14 @@ export interface User {
     first_name: string;
     last_name: string;
     institution: string;
+    institution_id?: string;
+    campus_code?: string;
+    batch_year?: number;
+    roll_number?: string;
+    major?: string;
+    is_hostelite?: boolean;
+    societies?: string[];
+    ghost_mode?: boolean;
     handle: string; // derived
     maskedName: string; // derived
     created_at?: string; // from auth/db

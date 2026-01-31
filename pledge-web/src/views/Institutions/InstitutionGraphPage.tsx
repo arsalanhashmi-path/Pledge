@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import { supabase } from '../../services/supabaseClient';
 import { Loader2 } from 'lucide-react';
 import { InstitutionSidebar } from './InstitutionSidebar';
+import { API_BASE_URL } from '../../constants';
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;
@@ -33,7 +34,7 @@ export const InstitutionGraphPage: React.FC = () => {
              const { data: { session } } = await supabase.auth.getSession();
              const token = session?.access_token;
              try {
-                 const res = await fetch('http://localhost:5000/api/institutions/graph', {
+                 const res = await fetch(`${API_BASE_URL}/api/institutions/graph`, {
                      headers: { 'Authorization': `Bearer ${token}` }
                  });
                  const json = await res.json();

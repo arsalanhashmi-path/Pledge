@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { Receipt, User, Connection } from '../types';
 import { ReceiptStatus } from '../types';
-import { INITIAL_USERS } from '../constants'; // Fallback
+import { INITIAL_USERS, API_BASE_URL } from '../constants'; // Fallback
 import { supabase } from './supabaseClient';
 
 interface StoreContextType {
@@ -20,6 +20,8 @@ interface StoreContextType {
     signOut: () => Promise<void>;
     rejectReceipt: (receiptId: string) => Promise<{ success: boolean; message: string }>;
     deleteReceipt: (receiptId: string) => Promise<{ success: boolean; message: string }>;
+    completeStudentOnboarding: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
+    getInferredIdentity: () => Promise<{ success: boolean; identity?: any; error?: string }>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -71,6 +73,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     first_name: myProfile.first_name,
                     last_name: myProfile.last_name,
                     institution: myProfile.institution,
+                    institution_id: myProfile.institution_id,
+                    campus_code: myProfile.campus_code,
+                    batch_year: myProfile.batch_year,
+                    roll_number: myProfile.roll_number,
+                    major: myProfile.major,
+                    is_hostelite: myProfile.is_hostelite,
+                    societies: myProfile.societies,
+                    ghost_mode: myProfile.ghost_mode,
                     handle: myProfile.first_name,
                     maskedName: `${myProfile.first_name} ${myProfile.last_name}`,
                     created_at: myProfile.created_at
@@ -121,7 +131,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             let conns: Connection[] = [];
             
             if (token) {
-                 const connRes = await fetch('http://localhost:5000/api/connections', {
+                 const connRes = await fetch(`${API_BASE_URL}/api/connections`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const connJson = await connRes.json();
@@ -161,6 +171,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         first_name: p.first_name,
                         last_name: p.last_name,
                         institution: p.institution,
+                        institution_id: p.institution_id,
+                        campus_code: p.campus_code,
+                        batch_year: p.batch_year,
+                        roll_number: p.roll_number,
+                        major: p.major,
                         handle: p.first_name,
                         maskedName: `${p.first_name} ${p.last_name || ''}`.trim()
                     }));
@@ -204,7 +219,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!token) return { success: false, message: "No token" };
 
         try {
-            const res = await fetch('http://localhost:5000/api/receipts/create', {
+            const res = await fetch(`${API_BASE_URL}/api/receipts/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -239,7 +254,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!token) return { success: false, message: "No token" };
 
         try {
-            const res = await fetch('http://localhost:5000/api/receipts/claim', {
+            const res = await fetch(`${API_BASE_URL}/api/receipts/claim`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -269,7 +284,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!token) return { success: false, message: "No token" };
 
         try {
-            const res = await fetch('http://localhost:5000/api/connections/request', {
+            const res = await fetch(`${API_BASE_URL}/api/connections/request`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -304,7 +319,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ));
 
         try {
-             const res = await fetch('http://localhost:5000/api/connections/accept', {
+             const res = await fetch(`${API_BASE_URL}/api/connections/accept`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -336,7 +351,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setConnections(prev => prev.filter(c => c.id !== connectionId));
 
         try {
-             const res = await fetch('http://localhost:5000/api/connections/remove', {
+             const res = await fetch(`${API_BASE_URL}/api/connections/remove`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -408,6 +423,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return users.find(u => u.id === id);
     };
 
+    const completeStudentOnboarding = async (onboardingData: Partial<User>): Promise<{ success: boolean; message: string }> => {
+        if (!currentUser) return { success: false, message: "Not authenticated" };
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, message: "No token" };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/onboarding`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(onboardingData)
+            });
+
+            const json = await res.json();
+            
+            if (!res.ok || !json.success) {
+                const errMsg = json.error || json.message || "Failed to complete onboarding";
+                console.error("Onboarding API Error:", json);
+                return { success: false, message: errMsg };
+            }
+
+            await fetchData({ force: true });
+            return { success: true, message: "Onboarding complete!" };
+
+        } catch (err: any) {
+            console.error("completeStudentOnboarding error:", err);
+            return { success: false, message: err.message || "Failed to complete onboarding" };
+        }
+    };
+
     const signOut = async () => {
         await supabase.auth.signOut();
         setCurrentUser(null);
@@ -416,16 +463,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setReceipts([]);
     };
 
+    const getInferredIdentity = async (): Promise<{ success: boolean; identity?: any; error?: string }> => {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (!token) return { success: false, error: "No token" };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/auth/verify-student`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const json = await res.json();
+            return { success: json.success, identity: json.identity, error: json.error };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    };
+
     const value = useMemo(() => ({
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
-        rejectReceipt, deleteReceipt
+        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity
     }), [
         receipts, connections, users, currentUser, loading,
         createReceipt, claimReceipt, getUser, signOut,
         addConnection, acceptConnection, rejectConnection, removeConnection,
-        rejectReceipt, deleteReceipt
+        rejectReceipt, deleteReceipt, completeStudentOnboarding, getInferredIdentity
     ]);
 
     return (

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { Layout } from '../../app/Layout';
-import { CheckCircle2, Award, Download, FileText, LayoutGrid, Share2, Sparkles, Loader2 } from 'lucide-react';
+import { CheckCircle2, Award, Download, FileText, LayoutGrid, Share2, Sparkles, MapPin, School, Loader2 } from 'lucide-react';
 import { ReceiptStatus } from '../../types';
 import type { Receipt } from '../../types';
 import { useStore } from '../../services/store';
@@ -28,6 +28,13 @@ export const UserProfilePage: React.FC = () => {
         last_name: string;
         email: string;
         institution: string;
+        institution_id: string;
+        batch_year: number;
+        major: string;
+        campus_code: string;
+        is_hostelite: boolean;
+        societies: string[];
+        roll_number: string;
         created_at: string;
     } | null>(null);
     const [lastInteraction, setLastInteraction] = useState<string | null>(null);
@@ -141,182 +148,251 @@ export const UserProfilePage: React.FC = () => {
 
     return (
         <Layout>
-            <div className="max-w-4xl mx-auto space-y-12 py-8 md:py-12 animate-fade-in pb-32">
-                {/* Elegant Header */}
-                <header className="flex flex-col items-center text-center space-y-6">
-                    <div className="relative group">
-                        <div className="w-24 h-24 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[2rem] flex items-center justify-center text-4xl font-bold shadow-2xl transition-transform group-hover:scale-105 group-hover:rotate-3">
-                            {userProfile ? userProfile.first_name.charAt(0).toUpperCase() : userId?.substring(0, 1).toUpperCase()}
-                        </div>
-                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-surface">
-                            <Award size={16} />
+            <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6 pb-32">
+                {/* LinkedIn-style Header Card */}
+                <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden relative">
+                    {/* Banner */}
+                    <div className={`h-48 w-full bg-gradient-to-r ${userProfile?.institution_id === 'LUMS' ? 'from-red-950 via-slate-900 to-slate-950' : 'from-emerald-950 via-slate-900 to-slate-950'} relative`}>
+                        <div className="absolute inset-0 opacity-20 [mask-image:radial-gradient(white,transparent)] flex flex-wrap gap-4 p-4">
+                            {[...Array(24)].map((_, i) => <div key={i} className="w-1 h-1 bg-white rounded-full" />)}
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <h1 className="text-4xl font-extrabold text-foreground tracking-tight">
-                            {userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Loading...'}
-                        </h1>
-                        <div className="flex flex-col items-center gap-1 text-muted text-sm font-medium">
-                            <span>{userProfile?.institution}</span>
-                            <div className="flex gap-2 text-xs opacity-60">
-                                <span>{userProfile?.email}</span>
-                                <span>•</span>
-                                <span>Joined {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : '...'}</span>
+                    {/* Profile Header Content */}
+                    <div className="px-8 pb-8">
+                        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between -mt-16 md:-mt-20 mb-6 gap-6">
+                            <div className="relative group shrink-0">
+                                <div className="w-32 h-32 md:w-40 md:h-40 bg-slate-900 border-4 border-surface text-white rounded-full flex items-center justify-center text-5xl font-bold shadow-xl overflow-hidden">
+                                     {userProfile ? userProfile.first_name.charAt(0).toUpperCase() : userId?.substring(0, 1).toUpperCase()}
+                                </div>
+                                <div className="absolute bottom-2 right-2 bg-emerald-500 text-white p-2.5 rounded-full shadow-lg border-4 border-surface">
+                                    <Award size={20} />
+                                </div>
                             </div>
-                            {lastInteraction && (
-                                <div className="mt-2 px-3 py-1 bg-surface border border-border rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
-                                    Last Interaction: {new Date(lastInteraction).toLocaleDateString()}
+                            
+                            <div className="flex bg-background p-1 rounded-xl border border-border h-fit">
+                                <button
+                                    onClick={() => setViewMode('PORTFOLIO')}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'PORTFOLIO' ? 'bg-surface text-foreground shadow-sm border border-border/50' : 'text-muted hover:text-foreground'}`}
+                                >
+                                    <LayoutGrid size={14} />
+                                    <span>Portfolio</span>
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('CV')}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'CV' ? 'bg-surface text-foreground shadow-sm border border-border/50' : 'text-muted hover:text-foreground'}`}
+                                >
+                                    <FileText size={14} />
+                                    <span>Professional CV</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="md:col-span-2 space-y-4">
+                                <div className="space-y-1">
+                                    <h1 className="text-3xl font-bold text-foreground tracking-tight">
+                                        {userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Loading...'}
+                                    </h1>
+                                    <p className="text-lg text-foreground/80 font-medium">
+                                        {userProfile?.major} Student at {userProfile?.institution_id || userProfile?.institution}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted text-sm font-medium pt-1">
+                                        <span className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-500" /> {userProfile?.campus_code || 'LUMS-MAIN'}</span>
+                                        <span>•</span>
+                                        <button onClick={handleCopyLink} className="text-emerald-500 hover:underline font-bold">Contact info</button>
+                                    </div>
+                                </div>
+
+                                {lastInteraction && (
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+                                        <Sparkles size={12} />
+                                        Verified Connection • Last seen {new Date(lastInteraction).toLocaleDateString()}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 group">
+                                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center shrink-0 border border-border shadow-sm">
+                                        <School size={16} className="text-slate-600 dark:text-slate-400" />
+                                    </div>
+                                    <span className="text-sm font-bold text-foreground hover:text-emerald-500 transition-colors cursor-pointer">{userProfile?.institution_id || 'LUMS'}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/30 rounded flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                                        <Award size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                    </div>
+                                    <span className="text-sm font-bold text-foreground hover:text-emerald-500 transition-colors cursor-pointer">{receivedCount} Verified Reputations</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column (Main Content) */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* About Section */}
+                        <section className="bg-surface rounded-2xl border border-border shadow-sm p-8 space-y-4">
+                            <h2 className="text-xl font-bold text-foreground">About</h2>
+                            <p className="text-sm text-foreground/70 leading-relaxed font-medium">
+                                Verified student at <strong>{userProfile?.institution_id || 'LUMS'}</strong>, currently pursuing studies in <strong>{userProfile?.major || 'Academic Major'}</strong>. 
+                                This profile showcases peer-verified interactions and proofs of impact within the campus ecosystem.
+                            </p>
+                            {userProfile?.societies && userProfile.societies.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                    {userProfile.societies.map(soc => (
+                                        <span key={soc} className="px-3 py-1 bg-background border border-border rounded-full text-[10px] font-bold text-muted uppercase tracking-wider">
+                                            {soc}
+                                        </span>
+                                    ))}
                                 </div>
                             )}
-                        </div>
-                        {!userProfile && <p className="text-muted font-bold text-xs uppercase tracking-widest">Verified Digital Reputation • {userId?.split('-')[0]}</p>}
-                    </div>
+                        </section>
 
-                    {/* View Switcher */}
-                    <div className="flex bg-background p-1 rounded-2xl border border-border w-fit">
-                        <button
-                            onClick={() => setViewMode('PORTFOLIO')}
-                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'PORTFOLIO' ? 'bg-surface text-foreground shadow-md' : 'text-muted hover:text-foreground'}`}
-                        >
-                            <LayoutGrid size={14} />
-                            <span>Portfolio</span>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('CV')}
-                            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'CV' ? 'bg-surface text-foreground shadow-md' : 'text-muted hover:text-foreground'}`}
-                        >
-                            <FileText size={14} />
-                            <span>Resume / CV</span>
-                        </button>
-                    </div>
-                </header>
-
-                {viewMode === 'PORTFOLIO' ? (
-                    <>
-                        {/* Impact Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-xl shadow-slate-900/5 text-center space-y-2">
-                                <div className="text-4xl font-black text-foreground">{receivedCount}</div>
-                                <div className="text-[10px] font-bold text-muted uppercase tracking-widest">Verified Proofs</div>
-                            </div>
-
-                            <div className="md:col-span-2 bg-surface p-8 rounded-[2.5rem] border border-border shadow-xl shadow-slate-900/5">
-                                <h3 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">Core Capabilities</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {topTags.length > 0 ? topTags.map(tag => (
-                                        <span key={tag} className="px-5 py-2.5 bg-background text-foreground border border-border rounded-2xl text-xs font-bold hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900 transition-colors cursor-default">
-                                            {tag}
-                                        </span>
-                                    )) : <span className="text-xs text-muted italic">No public skills listed yet.</span>}
+                        {viewMode === 'PORTFOLIO' ? (
+                            <section className="bg-surface rounded-2xl border border-border shadow-sm p-8 space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold text-foreground">Verified Experience</h2>
+                                    <button className="text-emerald-500 hover:text-emerald-400 font-bold text-sm">View Analytics</button>
                                 </div>
-                            </div>
-                        </div>
 
-                        {/* Proof Feed */}
-                        <div className="space-y-6">
-                            <div className="flex items-center space-x-4">
-                                <h3 className="text-[10px] font-bold text-muted uppercase tracking-widest whitespace-nowrap">Verification Wall</h3>
-                                <div className="h-px bg-border flex-1" />
-                            </div>
-
-                            {rows.length === 0 ? (
-                                <div className="bg-background p-12 rounded-[2.5rem] text-center border-2 border-dashed border-border">
-                                    <p className="text-muted font-medium italic">This user hasn't made any impact proofs public yet.</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {rows.map(r => (
-                                        <div key={r.id} className="bg-surface p-6 rounded-[2rem] border border-border shadow-lg shadow-slate-900/5 group hover:-translate-y-1 transition-all">
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center shrink-0 border border-emerald-500/20">
-                                                    <CheckCircle2 size={18} />
-                                                </div>
-                                                <div className="space-y-3 flex-1">
-                                                    <div className="text-sm font-bold text-foreground leading-relaxed min-h-[3rem]">
-                                                        {r.description || "Interaction verified by recipient."}
+                                <div className="space-y-8">
+                                    {rows.length === 0 ? (
+                                        <div className="py-12 text-center text-muted italic font-medium">
+                                            No verified proofs have been made public yet.
+                                        </div>
+                                    ) : (
+                                        rows.map((r, idx) => (
+                                            <div key={r.id} className="flex gap-4 group">
+                                                <div className="flex flex-col items-center shrink-0">
+                                                    <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center p-2 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                                        <CheckCircle2 size={24} className="text-emerald-500" />
                                                     </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex gap-1.5 overflow-hidden">
-                                                            {r.tags?.slice(0, 3).map(t => (
-                                                                <span key={t} className="text-[8px] font-bold text-muted bg-background px-2 py-1 rounded-lg uppercase tracking-wider">#{t}</span>
-                                                            ))}
+                                                    {idx !== rows.length - 1 && <div className="w-0.5 h-full bg-slate-100 dark:bg-slate-800 my-2" />}
+                                                </div>
+                                                <div className="pb-8 space-y-2 flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h4 className="text-base font-bold text-foreground leading-tight group-hover:text-emerald-500 transition-colors cursor-pointer">{r.description || "Verified Peer Interaction"}</h4>
+                                                            <p className="text-sm text-foreground/60 font-semibold">{userProfile?.institution_id} Peer Network</p>
+                                                            <p className="text-xs text-muted font-bold uppercase tracking-tight opacity-50">{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</p>
                                                         </div>
-                                                        <span className="text-[9px] font-bold text-muted/30 uppercase shrink-0">{new Date(r.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                                        {r.tags?.map(t => (
+                                                            <span key={t} className="text-[9px] font-black text-slate-400 bg-background px-2.5 py-1 rounded border border-border uppercase tracking-widest">#{t}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) )
+                                    )}
+                                </div>
+                            </section>
+                        ) : (
+                            <section className="bg-surface rounded-2xl border border-border shadow-sm p-10 space-y-8 relative overflow-hidden">
+                                <div className="flex justify-between items-start border-b border-border pb-8">
+                                    <div className="space-y-2">
+                                        <h2 className="text-2xl font-bold text-foreground">Experience Highlights</h2>
+                                        <p className="text-sm text-muted font-medium italic">AI-generated professional statements backed by verified peer-to-peer data.</p>
+                                    </div>
+                                    <button
+                                        onClick={handleGenerateAICV}
+                                        disabled={isGeneratingAI}
+                                        className="flex items-center space-x-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-xs shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                    >
+                                        {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                        <span>AI Generate</span>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-12">
+                                    {rows.map((r, idx) => (
+                                        <div key={r.id} className="relative pl-8 group">
+                                            {idx !== rows.length - 1 && <div className="absolute left-0 top-8 bottom-[-40px] w-0.5 bg-slate-100 dark:bg-slate-800" />}
+                                            <div className="absolute left-[-4px] top-2 w-2.5 h-2.5 rounded-full bg-slate-900 dark:bg-white ring-4 ring-surface transition-transform group-hover:scale-125" />
+                                            <div className="space-y-3">
+                                                <div className="flex items-center space-x-3">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {aiStatements[r.id] ? (
+                                                        <p className="text-base font-bold text-foreground leading-tight">{aiStatements[r.id]}</p>
+                                                    ) : (
+                                                        <p className="text-base font-bold text-muted italic">{r.description}</p>
+                                                    )}
+                                                    <div className="flex items-center space-x-1.5 text-muted font-bold text-[10px] uppercase italic">
+                                                        <CheckCircle2 size={12} className="text-emerald-500" />
+                                                        <span>Verified Interaction • ID: {r.id.substring(0, 8)}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    /* CV MODE */
-                    <div className="space-y-10 animate-slide-up">
-                        <section className="bg-surface rounded-[2.5rem] border border-border shadow-2xl p-10 space-y-8 relative overflow-hidden">
-                            {/* Decorative dot grid */}
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-background/50 [mask-image:radial-gradient(white,transparent)] flex flex-wrap gap-2 p-4 opacity-50">
-                                {[...Array(16)].map((_, i) => <div key={i} className="w-1 h-1 bg-border rounded-full" />)}
-                            </div>
+                            </section>
+                        )}
+                    </div>
 
-                            <div className="flex justify-between items-start border-b border-border pb-8">
-                                <div className="space-y-2">
-                                    <h2 className="text-3xl font-black text-foreground">Experience Highlights</h2>
-                                    <p className="text-muted font-medium max-w-md italic">AI-generated professional statements backed by verified peer-to-peer data.</p>
-                                </div>
-                                <button
-                                    onClick={handleGenerateAICV}
-                                    disabled={isGeneratingAI}
-                                    className="flex items-center space-x-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-xs shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                    <span>{Object.keys(aiStatements).length > 0 ? 'Regenerate Highlights' : 'Generate AI Highlights'}</span>
-                                </button>
-                            </div>
-
-                            <div className="space-y-12">
-                                {rows.map((r, idx) => (
-                                    <div key={r.id} className="relative pl-8 group">
-                                        {/* Timeline Line */}
-                                        {idx !== rows.length - 1 && <div className="absolute left-0 top-8 bottom-[-40px] w-0.5 bg-slate-100" />}
-                                        {/* Timeline Dot */}
-                                        <div className="absolute left-[-4px] top-2 w-2.5 h-2.5 rounded-full bg-slate-900 ring-4 ring-slate-50 transition-transform group-hover:scale-125" />
-
-                                        <div className="space-y-3">
-                                            <div className="flex items-center space-x-3">
-                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-                                                <div className="flex gap-2">
-                                                    {r.tags?.map(t => (
-                                                        <span key={t} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">#{t}</span>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                {aiStatements[r.id] ? (
-                                                    <p className="text-lg font-bold text-foreground leading-tight">
-                                                        {aiStatements[r.id]}
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-lg font-bold text-muted italic">
-                                                        {r.description}
-                                                        <span className="block text-[10px] uppercase mt-1 not-italic opacity-60">Click 'Generate AI Highlights' to polish this point</span>
-                                                    </p>
-                                                )}
-                                                <div className="flex items-center space-x-1.5 text-muted font-bold text-[10px] uppercase italic">
-                                                    <CheckCircle2 size={12} className="text-emerald-500" />
-                                                    <span>Verified Interaction Log • ID: {r.id.substring(0, 8)}</span>
-                                                </div>
-                                            </div>
+                    {/* Right Column (Sidebar) */}
+                    <div className="space-y-6">
+                        {/* Education Card */}
+                        <section className="bg-surface rounded-2xl border border-border shadow-sm p-8 space-y-6">
+                            <h2 className="text-xl font-bold text-foreground">Education</h2>
+                            <div className="space-y-6">
+                                <div className="flex gap-4 group">
+                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded border border-border flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                        <School size={24} className="text-slate-600 dark:text-slate-400" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-bold text-foreground group-hover:text-emerald-500 transition-colors cursor-pointer">{userProfile?.institution_id || userProfile?.institution}</h4>
+                                        <p className="text-xs text-foreground/70 font-medium">{userProfile?.major}</p>
+                                        <p className="text-xs text-muted font-bold opacity-60">2020 - {userProfile?.batch_year}</p>
+                                        <div className="pt-2">
+                                            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/5 border border-emerald-500/20 px-2 py-0.5 rounded uppercase tracking-tighter">Verified Roll: {userProfile?.roll_number}</span>
                                         </div>
                                     </div>
-                                ))}
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Stats Section */}
+                        <section className="bg-surface rounded-2xl border border-border shadow-sm p-8 space-y-6">
+                            <h2 className="text-xl font-bold text-foreground">Analytics</h2>
+                            <div className="space-y-6">
+                                <div className="space-y-1 group cursor-pointer">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl font-black text-foreground group-hover:text-emerald-500 transition-colors">{receivedCount}</span>
+                                        <span className="text-xs font-bold text-muted uppercase tracking-widest">Endorsements</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted font-medium">Verified student proofs</p>
+                                </div>
+                                <div className="space-y-1 group cursor-pointer border-t border-border pt-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl font-black text-foreground group-hover:text-emerald-500 transition-colors">{topTags.length}</span>
+                                        <span className="text-xs font-bold text-muted uppercase tracking-widest">Core Skills</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted font-medium">Based on interactions</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Top Capabilities */}
+                        <section className="bg-surface rounded-2xl border border-border shadow-sm p-8 space-y-6">
+                            <h2 className="text-xl font-bold text-foreground">Skills</h2>
+                            <div className="flex flex-wrap gap-2">
+                                {topTags.length > 0 ? topTags.map(tag => (
+                                    <div key={tag} className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-xl text-xs font-bold text-foreground hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all cursor-pointer group">
+                                        <span>{tag}</span>
+                                        <Award size={12} className="text-emerald-500 group-hover:rotate-12 transition-transform" />
+                                    </div>
+                                )) : <span className="text-xs text-muted italic">No public skills listed.</span>}
                             </div>
                         </section>
                     </div>
-                )}
+                </div>
 
                 {/* Floating Owner Action Bar */}
                 {isOwner && (

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../../services/store';
 import { makeReminderMessage } from '../../utils/reminderHelper';
 import { Layout } from '../../app/Layout';
-import { Plus, CheckCircle2, Clock, XCircle, HelpCircle, Trash2, Check, X } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, HelpCircle, Trash2, Check, X } from 'lucide-react';
 import { ReceiptStatus } from '../../types';
 import type { Receipt } from '../../types';
 

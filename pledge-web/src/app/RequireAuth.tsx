@@ -47,7 +47,9 @@ function isCompleteProfile(p: any) {
     return Boolean(
         p?.first_name &&
         p?.last_name &&
-        p?.institution
+        p?.institution_id &&
+        p?.batch_year &&
+        p?.major
     );
 }
 
@@ -63,7 +65,7 @@ export function RequireOnboarding({ children }: { children: React.ReactNode }) {
             // Check public profile
             const { data: publicProfile } = await supabase
                 .from('public_profiles')
-                .select('first_name,last_name,institution')
+                .select('first_name,last_name,institution_id,batch_year,major')
                 .eq('user_id', user.id)
                 .maybeSingle();
 

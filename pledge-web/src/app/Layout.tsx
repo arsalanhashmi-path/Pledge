@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trophy, Landmark, MessageCircle } from 'lucide-react';
+import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trophy, Landmark, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useStore } from '../services/store';
 import { useTheme } from './ThemeProvider';
+import { StudentOnboardingModal } from '../components/StudentOnboardingModal';
 
 interface LayoutProps {
     children?: React.ReactNode;
@@ -50,6 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const path = location.pathname;
     const { currentUser, signOut, receipts, connections } = useStore();
     const [unreadCounts, setUnreadCounts] = React.useState<{ [key: string]: number }>({});
+    const [showToast, setShowToast] = React.useState(false);
     
     // Fetch unread counts dynamically
     React.useEffect(() => {
@@ -88,6 +90,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const totalNotifications = pendingReceiptsCount + pendingConnectionsCount + unreadMessagesCount;
 
+    const [hasBeenOnboarded, setHasBeenOnboarded] = React.useState(false);
+
+    const showOnboarding = currentUser && !currentUser.institution_id;
+
+    React.useEffect(() => {
+        if (currentUser?.institution_id && !hasBeenOnboarded && localStorage.getItem('just_onboarded')) {
+            setShowToast(true);
+            setHasBeenOnboarded(true);
+            localStorage.removeItem('just_onboarded');
+            setTimeout(() => setShowToast(false), 5000);
+        }
+    }, [currentUser, hasBeenOnboarded]);
+
     return (
         <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
             {/* Top Mobile / Desktop Header */}
@@ -97,6 +112,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <div className="w-2 h-2 bg-foreground rounded-full" />
                     </div>
                     <span className="font-bold text-lg tracking-tight">Pledge</span>
+                    {currentUser?.institution_id && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-2">
+                             <ShieldCheck size={12} className="text-emerald-500" />
+                             <span className="text-[10px] font-black uppercase tracking-tighter text-emerald-500">Campus Verified</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center space-x-3">
                     <button
@@ -185,6 +206,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <NavItem to="/portfolio" icon={User} label="Profile" active={path === '/portfolio'} />
                 <NavItem onClick={handleSignOut} icon={LogOut} label="Log Out" active={false} className="text-slate-400 hover:text-red-500" />
             </nav>
+            {/* Client-side Onboarding Overlay */}
+            {showOnboarding && <StudentOnboardingModal />}
+
+            {/* Success Toast */}
+            {showToast && (
+                <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[110] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-emerald-500 text-slate-950 px-6 py-3 rounded-2xl shadow-2xl shadow-emerald-500/40 flex items-center gap-3 font-black">
+                        <ShieldCheck className="w-6 h-6" />
+                        <span>CAMPUS VERIFIED & READY</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

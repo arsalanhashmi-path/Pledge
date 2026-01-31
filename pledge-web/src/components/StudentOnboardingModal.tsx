@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useStore } from '../../services/store';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import { useStore } from '../services/store';
+import { Card } from './ui/Card';
+import { Badge } from './ui/Badge';
 import { Loader2, GraduationCap, School, MapPin, Users, ShieldCheck, ArrowRight, Check, X, Plus } from 'lucide-react';
 
 const LUMS_SOCIETIES = [
@@ -32,11 +31,7 @@ const LUMS_SOCIETIES = [
     "LUMS Culinary Society"
 ].sort();
 
-export const OnboardingPage: React.FC = () => {
-    const nav = useNavigate();
-    const [searchParams] = useSearchParams();
-    const redirect = searchParams.get('redirect');
-    
+export const StudentOnboardingModal: React.FC = () => {
     const { currentUser, getInferredIdentity, completeStudentOnboarding, signOut } = useStore();
     const [step, setStep] = useState<1 | 2>(1);
     const [loading, setLoading] = useState(true);
@@ -50,9 +45,9 @@ export const OnboardingPage: React.FC = () => {
     const [major, setMajor] = useState('');
     const [isHostelite, setIsHostelite] = useState(false);
     const [ghostMode, setGhostMode] = useState(false);
+    const [selectedSocieties, setSelectedSocieties] = useState<string[]>([]);
     const [batchYear, setBatchYear] = useState<number | ''>('');
     const [rollNumber, setRollNumber] = useState('');
-    const [selectedSocieties, setSelectedSocieties] = useState<string[]>([]);
 
     // Sync names when currentUser loads
     useEffect(() => {
@@ -91,21 +86,21 @@ export const OnboardingPage: React.FC = () => {
             alert(`Please fill in the following required fields: ${missing.join(", ")}`);
             return;
         }
-        
+
+        console.log("Onboarding Modal Submission Data:", {
+            firstName, lastName, major, batchYear, identity
+        });
+
         // 2. Identity Check
         if (!identity || !identity.institution_id) {
             alert("Student verification data is missing. Please refresh the page.");
             return;
         }
 
-        console.log("Onboarding Submission Data:", {
-            firstName, lastName, major, batchYear, identity
-        });
-
         setSaving(true);
         try {
             localStorage.setItem('just_onboarded', 'true');
-            const res = await completeStudentOnboarding({
+            const payload = {
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 institution_id: identity.institution_id,
@@ -116,13 +111,14 @@ export const OnboardingPage: React.FC = () => {
                 is_hostelite: isHostelite,
                 societies: selectedSocieties,
                 ghost_mode: ghostMode
-            });
+            };
+            const res = await completeStudentOnboarding(payload);
             
-            if (res.success) {
-                nav(redirect || '/');
-            } else {
+            if (!res.success) {
                 alert(res.message || "Submission failed. Please try again.");
             }
+            // Note: success handling (redirect) is handled by individual page or modal logic
+            // In layout it will close the modal once currentUser profile is complete
         } catch (err: any) {
             console.error("Submission crash:", err);
             alert(`A technical error occurred: ${err.message || 'Unknown error'}`);
@@ -133,7 +129,7 @@ export const OnboardingPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                 <div className="text-center space-y-4">
                     <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mx-auto" />
                     <p className="text-slate-400 font-medium">Verifying Student Credentials...</p>
@@ -144,7 +140,7 @@ export const OnboardingPage: React.FC = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                 <Card className="max-w-md w-full p-8 text-center border-red-500/30">
                     <ShieldCheck className="w-16 h-16 text-red-500 mx-auto mb-4 opacity-50" />
                     <h2 className="text-2xl font-bold text-white mb-2">Verification Error</h2>
@@ -167,9 +163,9 @@ export const OnboardingPage: React.FC = () => {
     const glowColor = isLums ? 'bg-red-500/5' : 'bg-emerald-500/5';
 
     return (
-        <div className="min-h-screen bg-slate-950 overflow-y-auto">
-            <div className="flex min-h-screen items-center justify-center p-4 py-12">
-                <div className="max-w-2xl w-full">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] overflow-y-auto">
+            <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="max-w-2xl w-full py-8">
                     {step === 1 ? (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                             <div className="text-center space-y-2">
