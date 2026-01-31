@@ -3,7 +3,10 @@ import { ReceiptStatus } from './types';
 
 export const CURRENT_USER_ID = 'u-me';
 
-const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Using stable backend URL as requested to resolve 404s from dead preview deployments
+const rawUrl = 'https://pledge-backend-chi.vercel.app';
+// const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 // Ensure protocol is present
 const validUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
 export const API_BASE_URL = validUrl.endsWith('/') ? validUrl.slice(0, -1) : validUrl;
