@@ -4,7 +4,7 @@ import { Home, User, LogOut, Network, PlusCircle, Receipt, Sun, Moon, Bell, Trop
 import { useStore } from '../services/store';
 import { useTheme } from './ThemeProvider';
 import { StudentOnboardingModal } from '../components/StudentOnboardingModal';
-import { supabase } from '../services/supabaseClient';
+
 
 interface LayoutProps {
     children?: React.ReactNode;
